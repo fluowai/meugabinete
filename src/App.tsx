@@ -20,7 +20,9 @@ import {
   ChevronRight,
   Menu,
   LogOut,
-  User
+  User,
+  Bot,
+  Award
 } from 'lucide-react';
 import { cn } from './lib/utils';
 import { useStore } from './stores/appStore';
