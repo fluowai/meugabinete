@@ -248,116 +248,170 @@ export default function Requests() {
         </div>
       </div>
 
-      {/* Modal Nova Demanda */}
+      {/* Modal Nova Demanda Expandido */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-              <div className="flex items-center gap-2">
-                <Plus className="w-5 h-5 text-blue-600" />
-                <h2 className="text-lg font-bold text-gray-900">Nova Demanda Popular</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in fade-in zoom-in duration-300">
+            {/* Header com Protocolo */}
+            <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-blue-50 to-white">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
+                  <Plus className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-gray-900 tracking-tight">Abertura de Demanda Popular</h2>
+                  <div className="flex items-center gap-2 text-xs font-bold text-blue-600 uppercase tracking-widest mt-0.5">
+                    <Clock className="w-3 h-3" />
+                    Protocolo: #{Math.floor(Math.random() * 900000) + 100000}/2026
+                  </div>
+                </div>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
-                <X className="w-5 h-5 text-gray-500" />
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <X className="w-6 h-6 text-gray-400" />
               </button>
             </div>
             
-            <form onSubmit={handleCreate} className="p-6 space-y-4">
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Cidadão Solicitante</label>
-                  <select 
-                    required
-                    value={formData.requesterId}
-                    onChange={e => setFormData({...formData, requesterId: e.target.value})}
-                    className="w-full h-11 px-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                  >
-                    <option value="">Selecione um cidadão...</option>
-                    {mockData.citizens.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Assunto</label>
-                    <div className="relative">
-                      <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input 
-                        type="text"
-                        required
-                        placeholder="Ex: Iluminação"
-                        value={formData.subject}
-                        onChange={e => setFormData({...formData, subject: e.target.value})}
-                        className="w-full h-11 pl-10 pr-4 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                      />
+            <form onSubmit={handleCreate} className="p-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                
+                {/* Coluna 1: Informações Básicas e Cidadão */}
+                <div className="space-y-6">
+                  <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                    <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-4">Identificação do Solicitante</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">Cidadão</label>
+                        <select 
+                          required
+                          value={formData.requesterId}
+                          onChange={e => setFormData({...formData, requesterId: e.target.value})}
+                          className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
+                        >
+                          <option value="">Selecione um cidadão no cadastro...</option>
+                          {mockData.citizens.map(c => (
+                            <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">Canal de Entrada</label>
+                          <select className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none">
+                            <option value="whatsapp">WhatsApp</option>
+                            <option value="phone">Telefone</option>
+                            <option value="person">Presencial</option>
+                            <option value="social">Redes Sociais</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">Prazo Estimado</label>
+                          <input type="date" className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none" />
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Bairro</label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input 
-                        type="text"
-                        required
-                        placeholder="Ex: Centro"
-                        value={formData.neighborhood}
-                        onChange={e => setFormData({...formData, neighborhood: e.target.value})}
-                        className="w-full h-11 pl-10 pr-4 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                      />
+
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest">Detalhes do Assunto</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">Assunto Principal</label>
+                        <div className="relative">
+                          <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <input 
+                            type="text" required placeholder="Ex: Iluminação"
+                            value={formData.subject}
+                            onChange={e => setFormData({...formData, subject: e.target.value})}
+                            className="w-full h-12 pl-10 pr-4 border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">Bairro</label>
+                        <div className="relative">
+                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                          <input 
+                            type="text" required placeholder="Ex: Centro"
+                            value={formData.neighborhood}
+                            onChange={e => setFormData({...formData, neighborhood: e.target.value})}
+                            className="w-full h-12 pl-10 pr-4 border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">Nível de Prioridade</label>
+                      <div className="flex gap-2">
+                        {['low', 'medium', 'high', 'urgent'].map((p) => (
+                          <button
+                            key={p} type="button"
+                            onClick={() => setFormData({...formData, priority: p})}
+                            className={cn(
+                              "flex-1 py-2.5 text-[10px] font-black rounded-xl border transition-all uppercase tracking-tighter",
+                              formData.priority === p 
+                                ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200 scale-105" 
+                                : "bg-white border-gray-200 text-gray-400 hover:border-blue-200"
+                            )}
+                          >
+                            {priorityLabels[p]}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Prioridade</label>
-                  <div className="flex gap-2">
-                    {['low', 'medium', 'high', 'urgent'].map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setFormData({...formData, priority: p})}
-                        className={cn(
-                          "flex-1 py-2 text-xs font-bold rounded-lg border transition-all uppercase tracking-wider",
-                          formData.priority === p 
-                            ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-200" 
-                            : "bg-white border-gray-200 text-gray-500 hover:border-blue-300"
-                        )}
-                      >
-                        {priorityLabels[p]}
-                      </button>
-                    ))}
+                {/* Coluna 2: Localização e Descrição */}
+                <div className="space-y-6">
+                  <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+                    <h3 className="text-sm font-black text-blue-900/40 uppercase tracking-widest mb-4">Localização da Ocorrência</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">Logradouro (Rua/Av)</label>
+                        <input type="text" placeholder="Nome da rua onde está o problema..." className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none" />
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="col-span-1">
+                          <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">Nº Próximo</label>
+                          <input type="text" placeholder="123" className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none" />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">Ponto de Referência</label>
+                          <input type="text" placeholder="Ex: Próximo ao mercado" className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">Relato Completo da Demanda</label>
+                    <textarea 
+                      required rows={6}
+                      placeholder="Descreva detalhadamente o problema relatado pelo cidadão..."
+                      value={formData.description}
+                      onChange={e => setFormData({...formData, description: e.target.value})}
+                      className="w-full p-4 border border-gray-200 rounded-2xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none resize-none transition-all"
+                    />
+                  </div>
+
+                  <div className="flex gap-4 pt-2">
+                    <button
+                      type="button" onClick={() => setIsModalOpen(false)}
+                      className="flex-1 h-14 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-2xl transition-all"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-[2] h-14 bg-blue-600 text-white text-sm font-black uppercase tracking-widest rounded-2xl hover:bg-blue-700 shadow-xl shadow-blue-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle className="w-5 h-5" />
+                      Registrar Demanda
+                    </button>
                   </div>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Descrição da Demanda</label>
-                  <textarea 
-                    required
-                    rows={4}
-                    placeholder="Descreva o que o cidadão solicitou..."
-                    value={formData.description}
-                    onChange={e => setFormData({...formData, description: e.target.value})}
-                    className="w-full p-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none resize-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 h-12 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-xl transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 h-12 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95"
-                >
-                  Cadastrar Demanda
-                </button>
               </div>
             </form>
           </div>
