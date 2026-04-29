@@ -44,7 +44,13 @@ export default function WhatsAppHub() {
   const fetchQrCode = async () => {
     setLoadingQr(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_WHATSAPP_SERVICE_URL}/qr`);
+      // Garante que a URL comece com https://
+      let baseUrl = import.meta.env.VITE_WHATSAPP_SERVICE_URL || '';
+      if (baseUrl && !baseUrl.startsWith('http')) {
+        baseUrl = `https://${baseUrl}`;
+      }
+      
+      const response = await fetch(`${baseUrl}/qr`);
       if (response.ok) {
         const code = await response.text();
         setQrCode(code);
@@ -63,6 +69,16 @@ export default function WhatsAppHub() {
     fetchQrCode();
   };
 
+  const openNewInstanceModal = () => {
+    const newInstance: Instance = {
+      id: Date.now().toString(),
+      name: `Nova Instância ${instances.length + 1}`,
+      phone: 'Aguardando conexão...',
+      status: 'disconnected'
+    };
+    openQr(newInstance);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -75,7 +91,10 @@ export default function WhatsAppHub() {
             <Zap className="w-4 h-4" />
             Configurar IA
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95">
+          <button 
+            onClick={openNewInstanceModal}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95"
+          >
             <Plus className="w-4 h-4" />
             Nova Instância
           </button>
