@@ -5,37 +5,62 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/fluowai/meugabinete/whatsapp-service/storage"
+	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types/events"
 )
 
 // NormalizePhone limpa o número e garante o formato +55...
 func NormalizePhone(phone string) (normalized string, digits string) {
-	// Remove tudo que não é número
 	re := regexp.MustCompile(`[^\d]`)
 	digits = re.ReplaceAllString(phone, "")
-
-	// Se não tiver o prefixo 55, adiciona (regra Brasil)
 	if !strings.HasPrefix(digits, "55") && len(digits) >= 10 {
 		digits = "55" + digits
 	}
-
 	normalized = "+" + digits
 	return
 }
 
 // ProcessMessage cuida da lógica central ao receber uma mensagem
-func ProcessMessage(v *events.Message) {
+func ProcessMessage(client *whatsmeow.Client, v *events.Message) {
 	sender := v.Info.Sender.User
 	pushName := v.Info.PushName
-	
-	normalized, digits := NormalizePhone(sender)
-	
-	fmt.Printf("Processando mensagem de: %s (%s)\n", normalized, pushName)
-	
-	// TODO: 
-	// 1. Verificar se o cidadão existe no Supabase (usando digits ou normalized)
-	// 2. Se não existir, criar com o pushName
-	// 3. Salvar a mensagem na tabela whatsapp_messages
-	// 4. Se tiver mídia, fazer upload para o bucket 'meugabinete'
-	// 5. Criar a demanda e chamar a IA
+	normalized, _ := NormalizePhone(sender)
+
+	fmt.Printf(">>> Nova mensagem de %s (%s)\n", normalized, pushName)
+
+	// 1. TRATAMENTO DE IMAGEM
+	img := v.Message.GetImageMessage()
+	if img != nil {
+		fmt.Println("Baixando imagem...")
+		data, err := client.Download(img)
+		if err == nil {
+			url, err := storage.UploadToSupabase(data, "imagem.jpg", "image/jpeg")
+			if err == nil {
+				fmt.Println("Imagem salva no Supabase:", url)
+				// TODO: Salvar URL na tabela demands vinculada ao cidadão
+			}
+		}
+	}
+
+	// 2. TRATAMENTO DE ÁUDIO
+	audio := v.Message.GetAudioMessage()
+	if audio != nil {
+		fmt.Println("Baixando áudio...")
+		data, err := client.Download(audio)
+		if err == nil {
+			url, err := storage.UploadToSupabase(data, "audio.ogg", "audio/ogg")
+			if err == nil {
+				fmt.Println("Áudio salvo no Supabase:", url)
+				// TODO: Salvar para futura transcrição
+			}
+		}
+	}
+
+	// 3. TRATAMENTO DE TEXTO SIMPLES
+	text := v.Message.GetConversation()
+	if text != "" {
+		fmt.Println("Texto recebido:", text)
+		// TODO: Chamar ai.ClassifyDemand(text)
+	}
 }
