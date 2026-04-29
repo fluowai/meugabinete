@@ -8,8 +8,8 @@ import (
 	"syscall"
 
 	"github.com/fluowai/meugabinete/whatsapp-service/handler"
+	"github.com/glebarez/go-sqlite"
 	"github.com/joho/godotenv"
-	_ "github.com/mattn/go-sqlite3"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types/events"
@@ -21,12 +21,12 @@ func main() {
 	godotenv.Load()
 
 	dbLog := waLog.Stdout("Database", "DEBUG", true)
-	container, err := sqlstore.New("sqlite3", "file:whatsapp_sessions.db?_foreign_keys=on", dbLog)
+	container, err := sqlstore.New(context.Background(), "sqlite", "file:whatsapp_sessions.db?_foreign_keys=on", dbLog)
 	if err != nil {
 		panic(err)
 	}
 
-	deviceStore, err := container.GetFirstDevice()
+	deviceStore, err := container.GetFirstDevice(context.Background())
 	if err != nil {
 		panic(err)
 	}
