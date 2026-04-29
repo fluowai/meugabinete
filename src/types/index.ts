@@ -181,6 +181,10 @@ export interface Request {
   requesterPhone?: string;
   assignedToId?: string;
   assignedToName?: string;
+  assignedToType?: 'ai' | 'human';
+  aiSummary?: string;
+  aiClassification?: any;
+  score?: number;
   resolution?: string;
   attachments?: string[];
   createdAt: string;

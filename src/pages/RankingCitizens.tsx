@@ -1,23 +1,17 @@
 import { motion } from 'motion/react';
-import { Users, MessageSquare, TrendingUp, Award } from 'lucide-react';
+import { Award, TrendingUp, User, MessageSquare } from 'lucide-react';
 import { mockData } from '../hooks/mockApi';
 import { cn } from '../lib/utils';
 
 export default function RankingCitizens() {
-  // Calculate rankings based on number of requests
-  const citizenStats = mockData.citizens.map(citizen => {
-    const requestCount = mockData.requests.filter(r => r.requesterName === citizen.name).length;
-    return {
-      ...citizen,
-      requestCount
-    };
-  }).sort((a, b) => b.requestCount - a.requestCount);
+  // Calculate rankings based on score
+  const citizenStats = [...mockData.citizens].sort((a, b) => (b.score || 0) - (a.score || 0));
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Ranking de Cidadãos</h1>
-        <p className="text-gray-500 mt-1">Cidadãos que mais interagem e enviam demandas ao gabinete.</p>
+        <h1 className="text-2xl font-bold text-gray-900">Ranking de Cidadãos e Lideranças</h1>
+        <p className="text-gray-500 mt-1">Pontuação baseada no volume e qualidade das demandas enviadas via WhatsApp.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -42,18 +36,20 @@ export default function RankingCitizens() {
             </div>
             <div className="flex flex-col items-center text-center">
               <div className={cn(
-                "w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold mb-4",
-                index === 0 ? "bg-yellow-100 text-yellow-700" : 
-                index === 1 ? "bg-gray-100 text-gray-700" : "bg-orange-100 text-orange-700"
+                "w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold mb-4 text-white",
+                index === 0 ? "bg-yellow-500 shadow-lg shadow-yellow-200" : 
+                index === 1 ? "bg-gray-400 shadow-lg shadow-gray-200" : "bg-orange-400 shadow-lg shadow-orange-200"
               )}>
                 {citizen.name.split(' ').map(n => n[0]).slice(0, 2).join('')}
               </div>
               <h3 className="font-bold text-gray-900 text-lg">{citizen.name}</h3>
               <p className="text-sm text-gray-500">{citizen.city}, {citizen.state}</p>
-              <div className="mt-4 flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-blue-600" />
-                <span className="text-2xl font-bold text-gray-900">{citizen.requestCount}</span>
-                <span className="text-sm text-gray-500 font-medium">demandas</span>
+              <div className="mt-4 flex flex-col items-center">
+                <div className="flex items-center gap-1 text-2xl font-black text-gray-900">
+                  <span>{citizen.score || 0}</span>
+                  <TrendingUp className="w-5 h-5 text-green-500" />
+                </div>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">pontos de engajamento</span>
               </div>
             </div>
           </motion.div>
@@ -66,9 +62,9 @@ export default function RankingCitizens() {
             <tr className="bg-gray-50 border-b border-gray-200">
               <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Posição</th>
               <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Cidadão</th>
-              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Localização</th>
-              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Total de Demandas</th>
-              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Tendência</th>
+              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Bairro</th>
+              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-center">Demandas</th>
+              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Score Final</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -97,23 +93,18 @@ export default function RankingCitizens() {
                   </div>
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
-                  {citizen.neighborhood ? `${citizen.neighborhood}, ` : ''}{citizen.city}/{citizen.state}
+                  {citizen.neighborhood || 'Centro'}
                 </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-full bg-gray-100 rounded-full h-2 max-w-[100px]">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full" 
-                        style={{ width: `${Math.min(100, (citizen.requestCount / (citizenStats[0]?.requestCount || 1)) * 100)}%` }}
-                      />
-                    </div>
-                    <span className="font-bold text-gray-900 text-sm">{citizen.requestCount}</span>
+                <td className="px-6 py-4 text-center">
+                  <div className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold">
+                    <MessageSquare className="w-3 h-3" />
+                    {citizen.totalDemands || 0}
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="flex items-center gap-1 text-green-600 text-sm font-medium">
-                    <TrendingUp className="w-4 h-4" />
-                    <span>Estável</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-blue-600 text-lg">{citizen.score || 0}</span>
+                    <TrendingUp className="w-4 h-4 text-green-500" />
                   </div>
                 </td>
               </tr>

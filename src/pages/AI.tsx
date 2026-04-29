@@ -17,10 +17,10 @@ interface Suggestion {
 }
 
 const suggestions: Suggestion[] = [
-  { id: '1', label: 'Gerar Texto', icon: 'sparkles', prompt: 'Gere um texto de boas-vindas para novos voluntários do gabinete.' },
-  { id: '2', label: 'Analisar Dados', icon: 'chart', prompt: `Analise os dados do dashboard e sugira ações baseados nos números atuais (${mockData.dashboardStats.citizens} cidadãos, ${mockData.dashboardStats.organizations} organizações).` },
-  { id: '3', label: 'Sugestão', icon: 'lightbulb', prompt: 'Me sugira ações estratégicas para aumentar o engajamento dos cidadãos.' },
-  { id: '4', label: 'FAQ', icon: 'help', prompt: 'Liste as dúvidas frequentes sobre o uso do sistema.' },
+  { id: '1', label: 'Classificar Demanda', icon: 'sparkles', prompt: 'Classifique esta demanda: "Tem um bueiro entupido na Rua das Palmeiras, 300, bairro Centro. Está cheirando mal e alagando a rua."' },
+  { id: '2', label: 'Resumir Relatos', icon: 'chart', prompt: 'Resuma as principais demandas do bairro Centro nos últimos 7 dias.' },
+  { id: '3', label: 'Encaminhamento', icon: 'lightbulb', prompt: 'Para qual secretaria devo enviar uma demanda de iluminação pública?' },
+  { id: '4', label: 'Ranking', icon: 'help', prompt: 'Quem são os cidadãos mais engajados este mês?' },
 ];
 
 const iconMap = {
@@ -35,7 +35,7 @@ export default function AIPage() {
     {
       id: '1',
       role: 'assistant',
-      content: 'Olá! Sou o assistente IA do seu Gabinete 360. Posso ajudá-lo a gerar textos, analisar dados, sugerir ações estratégicas e responder dúvidas. Como posso ajudar hoje?',
+      content: 'Olá! Sou o assistente IA do Gabinete do Vice-Prefeito. Estou aqui para ajudar a classificar, resumir e encaminhar demandas populares recebidas via WhatsApp. Como posso ajudar hoje?',
       timestamp: new Date(),
     },
   ]);
@@ -48,89 +48,56 @@ export default function AIPage() {
     
     const lowerMessage = userMessage.toLowerCase();
     
-    if (lowerMessage.includes('gerar texto') || lowerMessage.includes('boas-vindas')) {
-      return `Aqui está um texto de boas-vindas para novos voluntários:
-
-"Bem-vindo ao nosso time! 🚀
-
-Você acaba de se unir a uma equipe dedicada a fazer a diferença na vida das pessoas. Seu trabalho é fundamental para fortalecer a conexão entre o gabinete e a comunidade.
-
-Juntos, vamos:
-- Aproximar os cidadãos das decisões políticas
-- Facilitar o acesso a serviços e benefícios
-- Manter um canal aberto de dialogo com a população
-
-Contamos com você nessa missão! 
-
-Atenciosamente,
-Gabinete 360"`;
+    if (lowerMessage.includes('classificar') || lowerMessage.includes('bueiro')) {
+      return `### 🤖 Análise de Demanda via IA
+      
+**Resumo:** Obstrução de bueiro com alagamento em via pública.
+**Assunto:** Saneamento / Drenagem Urbana.
+**Bairro Detectado:** Centro.
+**Prioridade Sugerida:** Alta (Risco de alagamento).
+**Encaminhamento Recomendado:** Secretaria de Obras e Serviços Urbanos (Equipe de Hidrojateamento).`;
     }
     
-    if (lowerMessage.includes('analisar dados') || lowerMessage.includes('dashboard')) {
-      const stats = mockData.dashboardStats;
-      return `Análise dos dados do Dashboard:
+    if (lowerMessage.includes('resuma') || lowerMessage.includes('relatos')) {
+      return `### 📊 Resumo de Demandas - Bairro Centro (7 dias)
 
-**Números Atuais:**
-- Cidadãos: ${stats.citizens.toLocaleString('pt-BR')} (+${stats.citizensGrowth}% no mês)
-- Organizações: ${stats.organizations} (+${stats.organizationsGrowth}%)
-- Compromissos: ${stats.appointments} (${stats.appointmentsGrowth < 0 ? `${Math.abs(stats.appointmentsGrowth)}% negativo` : `+${stats.appointmentsGrowth}%`})
-- Landing Pages: ${stats.landingPages} (+${stats.landingPagesGrowth}%)
-- Mobilizações: ${stats.mobilizations} (+${stats.mobilizationsGrowth}%)
+Identifiquei **12 novas demandas** no bairro Centro esta semana:
+- **60%** Iluminação Pública (Lâmpadas queimadas na Praça Central)
+- **25%** Coleta de Lixo (Atraso na Rua 1)
+- **15%** Segurança (Solicitação de patrulhamento)
 
-**Sugestões:**
-1. O numero de cidadãos cresceu bem! Considere criar uma campanha de engajamento para manter o ritmo.
-2. As mobilizações estão com bom desempenho. Talvez seja hora de planejar uma nova.
-3. Compromissos tiveram queda. Sugiro revisar a agenda e priorizar agendamentos.`;
+**Tendência:** Houve um aumento de 15% nas reclamações de iluminação em comparação à semana anterior.`;
     }
     
-    if (lowerMessage.includes('sugestão') || lowerMessage.includes('ações estratégicas') || lowerMessage.includes('engajamento')) {
-      return `Sugestões estratégicas:
+    if (lowerMessage.includes('encaminhamento') || lowerMessage.includes('iluminação')) {
+      return `### 📍 Guia de Encaminhamento
 
-1. **Campanha de Mobilização**
-   - Crie eventos presenciais em comunidades estratégicas
-   - Use as ${mockData.dashboardStats.landingPages} landing pages para captação
+Para demandas de **Iluminação Pública**, o fluxo correto é:
+1. Validar se o poste possui identificação (braço/número).
+2. Encaminhar via sistema interno para a **Secretaria de Infraestrutura (Departamento de Iluminação)**.
+3. Notificar o cidadão via WhatsApp que o protocolo foi aberto.
 
-2. **Relacionamento com Órgãos**
-   - Fortaleça parcerias com as ${mockData.dashboardStats.organizations} organizações cadastradas
-   - Agende reuniões de alinhamento
-
-3. **Captação de Voluntários**
-   - Utilize os dados dos ${mockData.dashboardStats.citizens.toLocaleString('pt-BR')} cidadãos para identificar lideranças
-   - Ofereça treinamento para novos ativistas
-
-4. **Comunicação**
-   - Mantenha o diálogo ativo via WhatsApp
-   - Publique conteúdos nas redes sociais`;
+**Dica:** Se for em praça pública, a responsabilidade é da Secretaria de Meio Ambiente e Zeladoria.`;
     }
     
-    if (lowerMessage.includes('faq') || lowerMessage.includes('duvidas') || lowerMessage.includes('dúvidas')) {
-      return `Perguntas Frequentes (FAQ):
+    if (lowerMessage.includes('ranking') || lowerMessage.includes('engajados')) {
+      return `### 🏆 Cidadãos mais Engajados
 
-**1. Como adicionar um novo cidadão?**
-Acesse "Cidadãos" > "Novo Cidadão" > Preencha os dados > Salvar
+Os cidadãos que mais enviaram demandas validadas recentemente são:
+1. **João Silva Santos** (Centro) - 15 demandas
+2. **Maria Oliveira** (Jardim América) - 12 demandas
+3. **Pedro Henrique** (Vila Nova) - 9 demandas
 
-**2. Como criar uma mobilização?**
-Acesse "Mobilizações" > "Nova Mobilização" > Defina objetivo e data > Criar
-
-**3. Como agendar um compromisso?**
-Acesse "Compromissos" > "Novo Compromisso" > Selecione cidadão > Escolha data/hora
-
-**4. Como enviar mensagens em massa?**
-Acesse "Campanhas" > Selecione o público > Escreva a mensagem > Enviar
-
-**5. Como gerar relatórios?**
-Acesse "Relatórios" > Escolha o tipo > Defina o período > Exportar`;
+Estes cidadãos costumam ser excelentes informantes sobre problemas nos bairros.`;
     }
     
-    return `Entendi sua mensagem: "${userMessage.slice(0, 50)}..."
+    return `Entendi sua mensagem. Como assistente do Gabinete, posso ajudar você a:
+- **Classificar** mensagens do WhatsApp em categorias de demandas.
+- **Resumir** o que os cidadãos de um bairro estão pedindo.
+- **Sugerir** para qual secretaria municipal encaminhar cada caso.
+- **Identificar** tendências e pontos críticos na cidade.
 
-Posso ajudá-lo com:
-- 📝 Geração de textos e comunicações
-- 📊 Análise de dados do dashboard
-- 💡 Sugestões estratégicas
-- ❓ Perguntas frequentes sobre o sistema
-
-Digite ou selecione uma das opções acima para continuar.`;
+O que deseja fazer agora?`;
   };
 
   const handleSend = async () => {

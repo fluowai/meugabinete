@@ -30,6 +30,7 @@ import Requests from './pages/Requests';
 import WhatsApp from './pages/WhatsApp';
 import AI from './pages/AI';
 import RankingCitizens from './pages/RankingCitizens';
+import ServiceAgents from './pages/ServiceAgents';
 import BasicRegisters from './pages/BasicRegisters';
 import Login from './pages/Login';
 
@@ -46,7 +47,8 @@ const navItems: NavItem[] = [
   { id: 'cidadaos', label: 'Cidadãos', icon: Users, component: <CitizenList /> },
   { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare, component: <WhatsApp /> },
   { id: 'ai', label: 'Inteligência Artificial', icon: Cpu, component: <AI /> },
-  { id: 'ranking-cidadaos', label: 'Ranking de Cidadãos', icon: BarChart3, component: <RankingCitizens /> },
+  { id: 'agentes-atendimento', label: 'Agentes de Atendimento', icon: Bot, component: <ServiceAgents /> },
+  { id: 'ranking-cidadaos', label: 'Ranking de Cidadãos', icon: Award, component: <RankingCitizens /> },
   { id: 'cadastros', label: 'Configurações', icon: Settings, component: <BasicRegisters /> },
 ];
 
@@ -130,7 +132,7 @@ export default function App() {
         <div className="flex-1 overflow-y-auto py-4">
           {(sidebarOpen || isMobile) && <div className="px-6 mb-3 text-[11px] uppercase font-semibold text-[#6B7280] tracking-wider">Menu Principal</div>}
           <nav className="space-y-1">
-            {navItems.slice(0, 6).map((item) => (
+            {navItems.slice(0, 7).map((item) => (
               <button
                 key={item.id}
                 onClick={() => {
@@ -162,7 +164,7 @@ export default function App() {
               <div className="px-6 pt-4 pb-2 text-[11px] uppercase font-semibold text-[#6B7280] tracking-wider">Configurações</div>
             )}
             
-            {navItems.slice(6).map((item) => (
+            {navItems.slice(7).map((item) => (
               <button
                 key={item.id}
                 onClick={() => {
