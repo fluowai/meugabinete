@@ -27,19 +27,11 @@ func main() {
 		mux := http.NewServeMux()
 		
 		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
 			fmt.Fprintf(w, "WhatsApp Service is Running")
 		})
 		
 		mux.HandleFunc("/qr", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-			
-			if r.Method == "OPTIONS" {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-
 			if latestQR == "" {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "QR Code não gerado ou já conectado")
@@ -48,11 +40,26 @@ func main() {
 			fmt.Fprintf(w, latestQR)
 		})
 
+		// Middleware de CORS Global
+		handlerWithCORS := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			
+			mux.ServeHTTP(w, r)
+		})
+
 		port := os.Getenv("PORT")
 		if port == "" {
 			port = "8080"
 		}
-		http.ListenAndServe(":"+port, mux)
+		fmt.Printf("Servidor HTTP rodando na porta %s\n", port)
+		http.ListenAndServe(":"+port, handlerWithCORS)
 	}()
 
 	dbURL := os.Getenv("DATABASE_URL")
