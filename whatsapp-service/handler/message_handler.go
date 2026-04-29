@@ -53,12 +53,25 @@ func ProcessMessage(client *whatsmeow.Client, v *events.Message) {
 	// 1. TRATAMENTO DE IMAGEM
 	img := v.Message.GetImageMessage()
 	if img != nil {
-		data, err := client.Download(img)
+		data, err := client.Download(context.Background(), img)
 		if err == nil {
 			url, _ := storage.UploadToSupabase(data, "imagem.jpg", "image/jpeg")
 			fmt.Println("Imagem salva:", url)
 			
 			msg := fmt.Sprintf("Olá %s! Recebemos sua imagem. Sua demanda foi registrada sob o protocolo: *%s*.", pushName, protocol)
+			SendReply(client, sender, msg)
+		}
+	}
+
+	// 2. TRATAMENTO DE ÁUDIO
+	audio := v.Message.GetAudioMessage()
+	if audio != nil {
+		data, err := client.Download(context.Background(), audio)
+		if err == nil {
+			url, _ := storage.UploadToSupabase(data, "audio.ogg", "audio/ogg")
+			fmt.Println("Áudio salvo:", url)
+			
+			msg := fmt.Sprintf("Olá %s! Recebemos seu áudio. Ele será transcrito e analisado.\n*Protocolo: %s*", pushName, protocol)
 			SendReply(client, sender, msg)
 		}
 	}
