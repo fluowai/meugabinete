@@ -40,17 +40,21 @@ export default function WhatsAppHub() {
   const [selectedInstance, setSelectedInstance] = useState<Instance | null>(null);
   const [qrCode, setQrCode] = useState<string>('');
   const [loadingQr, setLoadingQr] = useState(false);
+  const [newInstanceName, setNewInstanceName] = useState('');
+  const [showNameInput, setShowNameInput] = useState(false);
 
   const fetchQrCode = async () => {
     setLoadingQr(true);
     try {
-      // Garante que a URL comece com https://
       let baseUrl = import.meta.env.VITE_WHATSAPP_SERVICE_URL || '';
       if (baseUrl && !baseUrl.startsWith('http')) {
         baseUrl = `https://${baseUrl}`;
       }
       
-      const response = await fetch(`${baseUrl}/qr`);
+      const response = await fetch(`${baseUrl}/qr`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
       if (response.ok) {
         const code = await response.text();
         setQrCode(code);
@@ -70,12 +74,17 @@ export default function WhatsAppHub() {
   };
 
   const openNewInstanceModal = () => {
+    setShowNameInput(true);
+  };
+
+  const startNewInstance = () => {
     const newInstance: Instance = {
       id: Date.now().toString(),
-      name: `Nova Instância ${instances.length + 1}`,
+      name: newInstanceName || `Nova Instância ${instances.length + 1}`,
       phone: 'Aguardando conexão...',
       status: 'disconnected'
     };
+    setShowNameInput(false);
     openQr(newInstance);
   };
 
@@ -216,6 +225,51 @@ export default function WhatsAppHub() {
               <p className="text-gray-500 max-w-sm mx-auto">Conecte uma instância e as demandas do WhatsApp começarão a aparecer aqui automaticamente após triagem por IA.</p>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Nome da Instância */}
+      <AnimatePresence>
+        {showNameInput && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-[40px] shadow-2xl w-full max-w-md overflow-hidden p-10"
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-6">
+                  <Plus className="w-8 h-8 text-blue-600" />
+                </div>
+                <h2 className="text-2xl font-black text-gray-900 mb-2">Nova Conexão</h2>
+                <p className="text-gray-500 text-sm mb-8">Dê um nome para esta instância do WhatsApp (ex: Atendimento Saúde).</p>
+                
+                <input
+                  type="text"
+                  placeholder="Nome da Instância"
+                  value={newInstanceName}
+                  onChange={(e) => setNewInstanceName(e.target.value)}
+                  className="w-full h-14 px-6 bg-gray-50 border-2 border-gray-100 rounded-2xl text-lg font-bold focus:outline-none focus:border-blue-500 transition-all mb-6"
+                />
+
+                <div className="flex gap-3 w-full">
+                  <button 
+                    onClick={() => setShowNameInput(false)}
+                    className="flex-1 h-14 bg-gray-100 text-gray-500 text-sm font-black uppercase tracking-widest rounded-2xl"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={startNewInstance}
+                    className="flex-1 h-14 bg-blue-600 text-white text-sm font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-blue-200"
+                  >
+                    Continuar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
