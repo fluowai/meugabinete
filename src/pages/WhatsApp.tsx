@@ -38,10 +38,29 @@ export default function WhatsAppHub() {
   const [instances] = useState<Instance[]>(mockInstances);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<Instance | null>(null);
+  const [qrCode, setQrCode] = useState<string>('');
+  const [loadingQr, setLoadingQr] = useState(false);
+
+  const fetchQrCode = async () => {
+    setLoadingQr(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_WHATSAPP_SERVICE_URL}/qr`);
+      if (response.ok) {
+        const code = await response.text();
+        setQrCode(code);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar QR Code:', error);
+    } finally {
+      setLoadingQr(false);
+    }
+  };
 
   const openQr = (instance: Instance) => {
     setSelectedInstance(instance);
     setIsQrModalOpen(true);
+    setQrCode('');
+    fetchQrCode();
   };
 
   return (
@@ -199,24 +218,44 @@ export default function WhatsAppHub() {
                 <p className="text-gray-500 text-sm mb-8">Escaneie o código abaixo com o seu WhatsApp para ativar a instância <strong>{selectedInstance?.name}</strong>.</p>
                 
                 <div className="relative p-4 bg-white border-4 border-gray-50 rounded-3xl shadow-inner mb-8">
-                  <div className="w-64 h-64 bg-gray-100 flex items-center justify-center rounded-2xl">
-                    <QrCode className="w-32 h-32 text-gray-300" />
-                    {/* Aqui entrará o componente de QR Code real vindo do Go */}
+                  <div className="w-64 h-64 bg-gray-100 flex items-center justify-center rounded-2xl overflow-hidden">
+                    {qrCode ? (
+                      <img 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCode)}`} 
+                        alt="WhatsApp QR Code"
+                        className="w-full h-full"
+                      />
+                    ) : (
+                      <QrCode className="w-32 h-32 text-gray-300" />
+                    )}
                   </div>
-                  <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-2xl backdrop-blur-sm">
-                    <div className="flex flex-col items-center gap-4">
-                      <RefreshCcw className="w-8 h-8 text-blue-600 animate-spin" />
-                      <span className="text-xs font-bold text-gray-600 uppercase tracking-widest">Aguardando Backend...</span>
+                  {(loadingQr || !qrCode) && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-2xl backdrop-blur-sm">
+                      <div className="flex flex-col items-center gap-4">
+                        <RefreshCcw className="w-8 h-8 text-blue-600 animate-spin" />
+                        <span className="text-xs font-bold text-gray-600 uppercase tracking-widest">
+                          {loadingQr ? 'Buscando QR...' : 'Aguardando Backend...'}
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
-                <button 
-                  onClick={() => setIsQrModalOpen(false)}
-                  className="w-full h-14 bg-gray-100 text-gray-500 text-sm font-black uppercase tracking-widest rounded-2xl hover:bg-gray-200 transition-all"
-                >
-                  Fechar
-                </button>
+                <div className="flex gap-3 w-full">
+                  <button 
+                    onClick={fetchQrCode}
+                    className="flex-1 h-14 bg-blue-50 text-blue-600 text-sm font-black uppercase tracking-widest rounded-2xl hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
+                  >
+                    <RefreshCcw className="w-4 h-4" />
+                    Atualizar
+                  </button>
+                  <button 
+                    onClick={() => setIsQrModalOpen(false)}
+                    className="flex-1 h-14 bg-gray-100 text-gray-500 text-sm font-black uppercase tracking-widest rounded-2xl hover:bg-gray-200 transition-all"
+                  >
+                    Fechar
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>

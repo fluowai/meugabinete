@@ -3,32 +3,55 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/fluowai/meugabinete/whatsapp-service/handler"
 	"github.com/joho/godotenv"
-	_ "github.com/lib/pq" // Driver Postgres para produção
+	_ "github.com/lib/pq"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 )
 
+var latestQR string
+
 func main() {
 	godotenv.Load()
 
-	// 1. Configuração do Banco de Dados (Postgres do Supabase)
-	// No Railway, a variável DATABASE_URL deve ser configurada
+	// Servidor de Health Check e QR Code para o Railway
+	go func() {
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, "WhatsApp Service is Running")
+		})
+		
+		http.HandleFunc("/qr", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			if latestQR == "" {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, "QR Code não gerado ou já conectado")
+				return
+			}
+			fmt.Fprintf(w, latestQR)
+		})
+
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "8080"
+		}
+		http.ListenAndServe(":"+port, nil)
+	}()
+
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		// Fallback para SQLite se não houver Postgres (para testes locais)
 		dbURL = "file:whatsapp_sessions.db?_pragma=foreign_keys(1)"
 	}
 
 	driver := "postgres"
-	if dbURL[0:4] == "file" {
+	if len(dbURL) > 4 && dbURL[0:4] == "file" {
 		driver = "sqlite"
 	}
 
@@ -61,7 +84,8 @@ func main() {
 		}
 		for evt := range qrChan {
 			if evt.Event == "code" {
-				fmt.Println(">>> QR CODE:", evt.Code)
+				latestQR = evt.Code
+				fmt.Println(">>> NOVO QR CODE GERADO")
 			}
 		}
 	} else {
@@ -69,6 +93,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		latestQR = ""
 	}
 
 	c := make(chan os.Signal, 1)
