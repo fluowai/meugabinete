@@ -170,12 +170,15 @@ export interface Request {
   id: string;
   title: string;
   description: string;
+  subject?: string;
+  neighborhood?: string;
   category: 'information' | 'complaint' | 'suggestion' | 'request' | 'compliment';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   status: 'open' | 'in-progress' | 'waiting' | 'resolved' | 'closed';
   requesterId: string;
   requesterName: string;
   requesterEmail?: string;
+  requesterPhone?: string;
   assignedToId?: string;
   assignedToName?: string;
   resolution?: string;
@@ -310,12 +313,9 @@ export interface PaginatedResponse<T> {
 export interface DashboardStats {
   citizens: number;
   citizensGrowth: number;
-  organizations: number;
-  organizationsGrowth: number;
-  appointments: number;
-  appointmentsGrowth: number;
-  landingPages: number;
-  landingPagesGrowth: number;
-  mobilizations: number;
-  mobilizationsGrowth: number;
+  openDemands: number;
+  inProgressDemands: number;
+  resolvedDemands: number;
+  topNeighborhoods: { name: string; count: number }[];
+  topSubjects: { name: string; count: number }[];
 }

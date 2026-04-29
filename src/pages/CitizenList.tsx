@@ -18,9 +18,9 @@ import type { Citizen } from '../types';
 import { useCitizens } from '../hooks/useApi';
 
 const statusConfig = {
-  lead: { label: 'Lead', className: 'bg-yellow-100 text-yellow-800' },
-  prospect: { label: 'Prospect', className: 'bg-blue-100 text-blue-800' },
-  client: { label: 'Cliente', className: 'bg-green-100 text-green-800' },
+  lead: { label: 'Novo', className: 'bg-yellow-100 text-yellow-800' },
+  prospect: { label: 'Recorrente', className: 'bg-blue-100 text-blue-800' },
+  client: { label: 'Engajado', className: 'bg-green-100 text-green-800' },
   inactive: { label: 'Inativo', className: 'bg-gray-100 text-gray-600' },
 };
 
@@ -91,9 +91,9 @@ export default function CitizenList() {
             className="h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
           >
             <option value="">Todos os status</option>
-            <option value="lead">Lead</option>
-            <option value="prospect">Prospect</option>
-            <option value="client">Cliente</option>
+            <option value="lead">Novo</option>
+            <option value="prospect">Recorrente</option>
+            <option value="client">Engajado</option>
             <option value="inactive">Inativo</option>
           </select>
         </div>

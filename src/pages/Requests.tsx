@@ -85,7 +85,8 @@ export default function Requests() {
       requests = requests.filter(r => 
         r.title.toLowerCase().includes(searchLower) ||
         r.requesterName.toLowerCase().includes(searchLower) ||
-        (r.assignedToName && r.assignedToName.toLowerCase().includes(searchLower))
+        (r.subject && r.subject.toLowerCase().includes(searchLower)) ||
+        (r.neighborhood && r.neighborhood.toLowerCase().includes(searchLower))
       );
     }
     
@@ -115,7 +116,7 @@ export default function Requests() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Buscar solicitações..."
+              placeholder="Buscar demandas..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -124,7 +125,7 @@ export default function Requests() {
         </div>
         <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
           <Plus className="w-4 h-4" />
-          Nova Solicitação
+          Nova Demanda
         </button>
       </div>
 
@@ -157,22 +158,19 @@ export default function Requests() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Título
+                  Cidadão / WhatsApp
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Categoria
+                  Assunto
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Bairro
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Prioridade
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Solicitante
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Responsável
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Data
@@ -185,8 +183,8 @@ export default function Requests() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                    Nenhuma solicitação encontrada
+                  <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                    Nenhuma demanda encontrada
                   </td>
                 </tr>
               ) : (
@@ -194,14 +192,18 @@ export default function Requests() {
                   <tr key={request.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <MessageSquare className="w-4 h-4 text-gray-400" />
-                        <span className="font-medium text-gray-900">{request.title}</span>
+                        <MessageSquare className="w-4 h-4 text-green-500" />
+                        <div>
+                          <div className="font-medium text-gray-900">{request.requesterName}</div>
+                          <div className="text-xs text-gray-500">{request.requesterPhone}</div>
+                        </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${categoryColors[request.category]}`}>
-                        {categoryLabels[request.category]}
-                      </span>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {request.subject}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {request.neighborhood}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${priorityColors[request.priority]}`}>
@@ -214,19 +216,13 @@ export default function Requests() {
                         {statusLabels[request.status]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {request.requesterName}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {request.assignedToName || '-'}
-                    </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {formatDate(request.createdAt)}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
                         <button className="p-1 text-gray-400 hover:text-blue-600 transition-colors">
-                          <Search className="w-4 h-4" />
+                          <Eye className="w-4 h-4" />
                         </button>
                       </div>
                     </td>

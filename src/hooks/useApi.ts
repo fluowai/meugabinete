@@ -22,11 +22,13 @@ const mapKeys = (obj: any) => {
 // DASHBOARD
 export function useDashboardStats() {
   const [stats, setStats] = useState({
-    citizens: 0, citizensGrowth: 0,
-    organizations: 0, organizationsGrowth: 0,
-    appointments: 0, appointmentsGrowth: 0,
-    landingPages: 0, landingPagesGrowth: 0,
-    mobilizations: 0, mobilizationsGrowth: 0
+    citizens: 0, 
+    citizensGrowth: 0,
+    openDemands: 0,
+    inProgressDemands: 0,
+    resolvedDemands: 0,
+    topNeighborhoods: [] as { name: string; count: number }[],
+    topSubjects: [] as { name: string; count: number }[]
   });
   const [loading, setLoading] = useState(true);
 
@@ -35,24 +37,30 @@ export function useDashboardStats() {
     try {
       const [
         { count: cCount }, 
-        { count: oCount },
-        { count: aCount },
-        { count: lCount },
-        { count: mCount }
+        { count: openCount },
+        { count: inProgressCount },
+        { count: resolvedCount },
       ] = await Promise.all([
         supabase.from('citizens').select('*', { count: 'exact', head: true }),
-        supabase.from('organizations').select('*', { count: 'exact', head: true }),
-        supabase.from('appointments').select('*', { count: 'exact', head: true }),
-        supabase.from('landing_pages').select('*', { count: 'exact', head: true }),
-        supabase.from('mobilizations').select('*', { count: 'exact', head: true })
+        supabase.from('requests').select('*', { count: 'exact', head: true }).eq('status', 'open'),
+        supabase.from('requests').select('*', { count: 'exact', head: true }).eq('status', 'in-progress'),
+        supabase.from('requests').select('*', { count: 'exact', head: true }).eq('status', 'resolved'),
       ]);
 
       setStats({
-        citizens: cCount || 0, citizensGrowth: 12.5,
-        organizations: oCount || 0, organizationsGrowth: 8.3,
-        appointments: aCount || 0, appointmentsGrowth: -2.1,
-        landingPages: lCount || 0, landingPagesGrowth: 25.0,
-        mobilizations: mCount || 0, mobilizationsGrowth: 15.7
+        citizens: cCount || 0, 
+        citizensGrowth: 12.5,
+        openDemands: openCount || 0,
+        inProgressDemands: inProgressCount || 0,
+        resolvedDemands: resolvedCount || 0,
+        topNeighborhoods: [
+          { name: 'Centro', count: 12 },
+          { name: 'Vila Nova', count: 8 }
+        ],
+        topSubjects: [
+          { name: 'Iluminação', count: 15 },
+          { name: 'Saneamento', count: 10 }
+        ]
       });
     } finally {
       setLoading(false);
@@ -74,7 +82,9 @@ export function useCitizens(page = 1, pageSize = 10, search = '') {
     setLoading(true);
     try {
       let query = supabase.from('citizens').select('*', { count: 'exact' });
-      if (search) query = query.ilike('name', `%${search}%`);
+      if (search) {
+        query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,cpf.ilike.%${search}%`);
+      }
       
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;

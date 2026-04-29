@@ -24,22 +24,13 @@ import {
 } from 'lucide-react';
 import { cn } from './lib/utils';
 import { useStore } from './stores/appStore';
-import LandingPageList from './pages/LandingPageList';
 import Dashboard from './pages/Dashboard';
 import CitizenList from './pages/CitizenList';
-import OrganizationList from './pages/OrganizationList';
-import AppointmentList from './pages/AppointmentList';
-import Relationships from './pages/Relationships';
-import Mobilizations from './pages/Mobilizations';
 import Requests from './pages/Requests';
-import Amendments from './pages/Amendments';
 import WhatsApp from './pages/WhatsApp';
-import EmailCampaigns from './pages/EmailCampaigns';
 import AI from './pages/AI';
-import Reports from './pages/Reports';
-import Collaborators from './pages/Collaborators';
+import RankingCitizens from './pages/RankingCitizens';
 import BasicRegisters from './pages/BasicRegisters';
-import Signatures from './pages/Signatures';
 import Login from './pages/Login';
 
 type NavItem = {
@@ -51,21 +42,12 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, component: <Dashboard /> },
+  { id: 'demandas', label: 'Demandas', icon: MessageSquare, component: <Requests /> },
   { id: 'cidadaos', label: 'Cidadãos', icon: Users, component: <CitizenList /> },
-  { id: 'organizacoes', label: 'Organizações', icon: Building2, component: <OrganizationList /> },
-  { id: 'compromissos', label: 'Compromissos', icon: Calendar, component: <AppointmentList /> },
-  { id: 'landing-pages', label: 'Landing Pages', icon: Layout, component: <LandingPageList /> },
-  { id: 'relacionamentos', label: 'Relacionamentos', icon: Users2, component: <Relationships /> },
-  { id: 'mobilizacoes', label: 'Mobilizações', icon: Target, component: <Mobilizations /> },
-  { id: 'solicitacoes', label: 'Solicitações', icon: MessageSquare, component: <Requests /> },
-  { id: 'emendas', label: 'Emendas Parlamentares', icon: FileText, component: <Amendments /> },
   { id: 'whatsapp', label: 'WhatsApp', icon: MessageSquare, component: <WhatsApp /> },
-  { id: 'emails', label: 'E-mails', icon: Mail, component: <EmailCampaigns /> },
   { id: 'ai', label: 'Inteligência Artificial', icon: Cpu, component: <AI /> },
-  { id: 'relatorios', label: 'Relatórios', icon: BarChart3, component: <Reports /> },
-  { id: 'colaboradores', label: 'Colaboradores', icon: Users2, component: <Collaborators /> },
-  { id: 'cadastros', label: 'Cadastros básicos', icon: Settings, component: <BasicRegisters /> },
-  { id: 'assinaturas', label: 'Assinaturas', icon: PenTool, component: <Signatures /> },
+  { id: 'ranking-cidadaos', label: 'Ranking de Cidadãos', icon: BarChart3, component: <RankingCitizens /> },
+  { id: 'cadastros', label: 'Configurações', icon: Settings, component: <BasicRegisters /> },
 ];
 
 export default function App() {
@@ -93,7 +75,7 @@ export default function App() {
     return <Login />;
   }
 
-  const currentComponent = navItems.find(n => n.id === currentPage)?.component || <LandingPageList />;
+  const currentComponent = navItems.find(n => n.id === currentPage)?.component || <Dashboard />;
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
   return (
