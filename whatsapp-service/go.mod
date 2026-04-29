@@ -6,6 +6,7 @@ require (
 	github.com/glebarez/go-sqlite v1.22.0
 	github.com/google/generative-ai-go v0.20.1
 	github.com/joho/godotenv v1.5.1
+	github.com/lib/pq v1.10.9
 	go.mau.fi/whatsmeow v0.0.0-20260427122815-7514259253a7
 	google.golang.org/api v0.276.0
 	google.golang.org/protobuf v1.36.11

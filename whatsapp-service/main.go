@@ -8,8 +8,8 @@ import (
 	"syscall"
 
 	"github.com/fluowai/meugabinete/whatsapp-service/handler"
-	_ "github.com/glebarez/go-sqlite"
 	"github.com/joho/godotenv"
+	_ "github.com/lib/pq" // Driver Postgres para produção
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types/events"
@@ -17,11 +17,23 @@ import (
 )
 
 func main() {
-	// Carregar variáveis de ambiente
 	godotenv.Load()
 
+	// 1. Configuração do Banco de Dados (Postgres do Supabase)
+	// No Railway, a variável DATABASE_URL deve ser configurada
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		// Fallback para SQLite se não houver Postgres (para testes locais)
+		dbURL = "file:whatsapp_sessions.db?_pragma=foreign_keys(1)"
+	}
+
+	driver := "postgres"
+	if dbURL[0:4] == "file" {
+		driver = "sqlite"
+	}
+
 	dbLog := waLog.Stdout("Database", "DEBUG", true)
-	container, err := sqlstore.New(context.Background(), "sqlite", "file:whatsapp_sessions.db?_pragma=foreign_keys(1)", dbLog)
+	container, err := sqlstore.New(context.Background(), driver, dbURL, dbLog)
 	if err != nil {
 		panic(err)
 	}
@@ -34,7 +46,6 @@ func main() {
 	clientLog := waLog.Stdout("Client", "DEBUG", true)
 	client := whatsmeow.NewClient(deviceStore, clientLog)
 
-	// Conectar o Handler Refinado
 	client.AddEventHandler(func(evt interface{}) {
 		switch v := evt.(type) {
 		case *events.Message:
@@ -50,8 +61,7 @@ func main() {
 		}
 		for evt := range qrChan {
 			if evt.Event == "code" {
-				fmt.Println(">>> ESCANEIE O QR CODE NO WHATSAPP PARA CONECTAR <<<")
-				fmt.Println(evt.Code)
+				fmt.Println(">>> QR CODE:", evt.Code)
 			}
 		}
 	} else {

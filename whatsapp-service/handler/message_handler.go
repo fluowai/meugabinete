@@ -2,10 +2,13 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
 
+	"github.com/fluowai/meugabinete/whatsapp-service/ai"
+	"github.com/fluowai/meugabinete/whatsapp-service/database"
 	"github.com/fluowai/meugabinete/whatsapp-service/storage"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
@@ -14,7 +17,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// NormalizePhone limpa o número e garante o formato +55...
 func NormalizePhone(phone string) (normalized string, digits string) {
 	re := regexp.MustCompile(`[^\d]`)
 	digits = re.ReplaceAllString(phone, "")
@@ -25,7 +27,6 @@ func NormalizePhone(phone string) (normalized string, digits string) {
 	return
 }
 
-// SendReply envia uma resposta simples de texto
 func SendReply(client *whatsmeow.Client, jid types.JID, text string) {
 	_, err := client.SendMessage(context.Background(), jid, &waE2E.Message{
 		Conversation: proto.String(text),
@@ -35,57 +36,85 @@ func SendReply(client *whatsmeow.Client, jid types.JID, text string) {
 	}
 }
 
-// ProcessMessage cuida da lógica central ao receber uma mensagem
 func ProcessMessage(client *whatsmeow.Client, v *events.Message) {
-	// Ignorar mensagens enviadas por nós mesmos
 	if v.Info.IsFromMe {
 		return
 	}
 
 	sender := v.Info.Sender
 	pushName := v.Info.PushName
-	normalized, _ := NormalizePhone(sender.User)
+	normalized, digits := NormalizePhone(sender.User)
 
-	fmt.Printf(">>> Nova mensagem de %s (%s)\n", normalized, pushName)
+	fmt.Printf(">>> Processando demanda de %s\n", pushName)
 
-	protocol := fmt.Sprintf("DEM-%d-%06d", 2026, 123) // Simulado: aqui viria do banco
-
-	// 1. TRATAMENTO DE IMAGEM
-	img := v.Message.GetImageMessage()
-	if img != nil {
-		data, err := client.Download(context.Background(), img)
-		if err == nil {
-			url, _ := storage.UploadToSupabase(data, "imagem.jpg", "image/jpeg")
-			fmt.Println("Imagem salva:", url)
-			
-			msg := fmt.Sprintf("Olá %s! Recebemos sua imagem. Sua demanda foi registrada sob o protocolo: *%s*.", pushName, protocol)
-			SendReply(client, sender, msg)
-		}
+	// 1. GARANTIR CIDADÃO NO BANCO (Opcional: Log no console para evitar erro de unused)
+	citizenData := map[string]interface{}{
+		"name":         pushName,
+		"phone":        normalized,
+		"phone_digits": digits,
+		"whatsapp_jid": sender.String(),
+		"push_name":    pushName,
 	}
+	// Tenta salvar o cidadão (ignora erro se já existir)
+	database.SaveToSupabase("citizens", citizenData)
 
-	// 2. TRATAMENTO DE ÁUDIO
-	audio := v.Message.GetAudioMessage()
-	if audio != nil {
-		data, err := client.Download(context.Background(), audio)
-		if err == nil {
-			url, _ := storage.UploadToSupabase(data, "audio.ogg", "audio/ogg")
-			fmt.Println("Áudio salvo:", url)
-			
-			msg := fmt.Sprintf("Olá %s! Recebemos seu áudio. Ele será transcrito e analisado.\n*Protocolo: %s*", pushName, protocol)
-			SendReply(client, sender, msg)
-		}
-	}
+	// 2. CAPTURAR CONTEÚDO E MÍDIA
+	var content string
+	var mediaURL string
 
-	// 2. TRATAMENTO DE TEXTO
 	text := v.Message.GetConversation()
 	if text == "" && v.Message.GetExtendedTextMessage() != nil {
 		text = v.Message.GetExtendedTextMessage().GetText()
 	}
+	content = text
 
-	if text != "" {
-		fmt.Println("Texto recebido:", text)
-		
-		msg := fmt.Sprintf("Olá %s! Recebemos sua mensagem: \"%s\".\n\nSua demanda foi registrada e nossa equipe irá analisar.\n*Protocolo: %s*", pushName, text, protocol)
-		SendReply(client, sender, msg)
+	img := v.Message.GetImageMessage()
+	if img != nil {
+		data, err := client.Download(context.Background(), img)
+		if err == nil {
+			mediaURL, _ = storage.UploadToSupabase(data, "imagem.jpg", "image/jpeg")
+			if content == "" {
+				content = "[Imagem recebida]"
+			}
+		}
 	}
+
+	// 3. CLASSIFICAÇÃO POR IA
+	classification, _ := ai.ClassifyDemand(content)
+	
+	// 4. CRIAR DEMANDA NO BANCO
+	demandData := map[string]interface{}{
+		"original_message": content,
+		"summary_ai":       classification.Resumo,
+		"category":         classification.Categoria,
+		"subcategory":      classification.Subcategoria,
+		"priority":         classification.Prioridade,
+		"sentiment":        classification.Sentimento,
+		"status":           "Nova",
+		"channel":          "whatsapp",
+		"media_url":        mediaURL, // Agora a variável é utilizada
+	}
+
+	resp, err := database.SaveToSupabase("demands", demandData)
+	
+	var finalProtocol string = "DEM-2026-AUTO"
+	if err == nil {
+		var createdDemand struct {
+			Protocol string `json:"protocol"`
+		}
+		json.Unmarshal(resp, &createdDemand)
+		if createdDemand.Protocol != "" {
+			finalProtocol = createdDemand.Protocol
+		}
+	}
+
+	// 5. RESPOSTA AO CIDADÃO
+	reply := fmt.Sprintf("Olá *%s*! Recebemos sua mensagem.\n\n*Resumo IA:* %s\n*Categoria:* %s\n\nSua demanda foi registrada com sucesso!\n*Protocolo:* %s", 
+		pushName, classification.Resumo, classification.Categoria, finalProtocol)
+	
+	if classification.SugestaoResposta != "" {
+		reply += "\n\n" + classification.SugestaoResposta
+	}
+
+	SendReply(client, sender, reply)
 }
