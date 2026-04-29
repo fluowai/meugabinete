@@ -44,35 +44,52 @@ export const useStore = create<AppState>()(
       setDashboardStats: (stats) => set({ dashboardStats: stats }),
       
       login: async (email, password) => {
+        // Fallback para desenvolvimento: permitir admin/admin123 independente do banco
+        if (email === 'admin' && password === 'admin123') {
+          const fallbackUser: User = { 
+            id: 'dev-admin', 
+            name: 'Admin Developer', 
+            email: 'admin@gabinete360.com', 
+            role: 'admin',
+            status: 'active',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          set({ user: fallbackUser, isAuthenticated: true });
+          return true;
+        }
+
         try {
           const { data, error } = await supabase
             .from('users')
             .select('*')
-            .or(`email.eq."${email}",name.eq."${email}"`)
+            .or(`email.eq.${email},name.eq.${email}`)
             .eq('status', 'active')
-            .single();
+            .maybeSingle();
 
-          if (error || !data) {
-            console.error('Auth error:', error);
+          if (error) {
+            console.error('Supabase auth error:', error);
             return false;
           }
 
-          // Verificação simples para o protótipo (admin123)
-          // No banco está o hash, mas para facilitar o teste inicial permitimos admin123
-          if (password === 'admin123' || data.password_hash === password) {
-            const user: User = { 
-              id: data.id, 
-              name: data.name, 
-              email: data.email, 
-              role: data.role,
-              avatar: data.avatar,
-              status: data.status,
-              createdAt: data.created_at,
-              updatedAt: data.updated_at
-            };
-            set({ user, isAuthenticated: true });
-            return true;
+          if (data) {
+            // Se encontrou no banco, valida a senha (aceita plain text 'admin123' ou hash)
+            if (password === 'admin123' || data.password_hash === password) {
+              const user: User = { 
+                id: data.id, 
+                name: data.name, 
+                email: data.email, 
+                role: data.role,
+                avatar: data.avatar,
+                status: data.status,
+                createdAt: data.created_at,
+                updatedAt: data.updated_at
+              };
+              set({ user, isAuthenticated: true });
+              return true;
+            }
           }
+          
           return false;
         } catch (err) {
           console.error('Login exception:', err);
