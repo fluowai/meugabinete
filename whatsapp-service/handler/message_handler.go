@@ -79,8 +79,17 @@ func ProcessMessage(client *whatsmeow.Client, v *events.Message) {
 		}
 	}
 
-	// 3. CLASSIFICAÇÃO POR IA
-	classification, _ := ai.ClassifyDemand(content)
+	// 3. CLASSIFICAÇÃO POR IA (com fallback automático)
+	classification, err := ai.ClassifyDemand(content)
+	if err != nil {
+		fmt.Printf("Erro na classificação IA: %v\n", err)
+		classification = &ai.ClassificationResult{
+			Resumo:     "Mensagem recebida",
+			Categoria:  "Outros",
+			Prioridade: "Média",
+			Sentimento: "Outros",
+		}
+	}
 	
 	// 4. CRIAR DEMANDA NO BANCO
 	demandData := map[string]interface{}{

@@ -8,6 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/fluowai/meugabinete/whatsapp-service/ai"
+	"github.com/fluowai/meugabinete/whatsapp-service/api"
 	"github.com/fluowai/meugabinete/whatsapp-service/handler"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -18,28 +20,19 @@ import (
 )
 
 var latestQR string
+var whatsappClient *whatsmeow.Client
 
 func main() {
 	godotenv.Load()
 
-	// Servidor de Health Check e QR Code para o Railway
-	go func() {
-		mux := http.NewServeMux()
-		
-		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-			fmt.Fprintf(w, "WhatsApp Service is Running")
-		})
-		
-		mux.HandleFunc("/qr", func(w http.ResponseWriter, r *http.Request) {
-			if latestQR == "" {
-				w.WriteHeader(http.StatusNotFound)
-				fmt.Fprintf(w, "QR Code não gerado ou já conectado")
-				return
-			}
-			fmt.Fprintf(w, latestQR)
-		})
+	// Inicializa o AI Router
+	_ = ai.GetRouter()
+	fmt.Println("AI Router inicializado")
 
+	// Servidor HTTP com API REST completa
+	go func() {
+		apiServer := api.NewAPIServer(whatsappClient)
+		
 		// Middleware de CORS Global
 		handlerWithCORS := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -51,14 +44,14 @@ func main() {
 				return
 			}
 			
-			mux.ServeHTTP(w, r)
+			apiServer.ServeHTTP(w, r)
 		})
 
 		port := os.Getenv("PORT")
 		if port == "" {
-			port = "8080"
+			port = "3001"
 		}
-		fmt.Printf("Servidor HTTP rodando na porta %s\n", port)
+		fmt.Printf("API REST rodando na porta %s\n", port)
 		http.ListenAndServe(":"+port, handlerWithCORS)
 	}()
 
@@ -84,37 +77,39 @@ func main() {
 	}
 
 	clientLog := waLog.Stdout("Client", "DEBUG", true)
-	client := whatsmeow.NewClient(deviceStore, clientLog)
+	whatsappClient = whatsmeow.NewClient(deviceStore, clientLog)
 
-	client.AddEventHandler(func(evt interface{}) {
+	whatsappClient.AddEventHandler(func(evt interface{}) {
 		switch v := evt.(type) {
 		case *events.Message:
-			handler.ProcessMessage(client, v)
+			handler.ProcessMessage(whatsappClient, v)
 		}
 	})
 
-	if client.Store.ID == nil {
-		qrChan, _ := client.GetQRChannel(context.Background())
-		err = client.Connect()
+	if whatsappClient.Store.ID == nil {
+		qrChan, _ := whatsappClient.GetQRChannel(context.Background())
+		err = whatsappClient.Connect()
 		if err != nil {
 			panic(err)
 		}
 		for evt := range qrChan {
 			if evt.Event == "code" {
 				latestQR = evt.Code
+				os.Setenv("LATEST_QR", latestQR)
 				fmt.Println(">>> NOVO QR CODE GERADO")
 			}
 		}
 	} else {
-		err = client.Connect()
+		err = whatsappClient.Connect()
 		if err != nil {
 			panic(err)
 		}
 		latestQR = ""
+		os.Setenv("LATEST_QR", "")
 	}
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
-	client.Disconnect()
+	whatsappClient.Disconnect()
 }

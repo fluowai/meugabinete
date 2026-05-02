@@ -2,7 +2,6 @@ package ai
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -10,22 +9,8 @@ import (
 	"google.golang.org/api/option"
 )
 
-type ClassificationResult struct {
-	Resumo                   string `json:"resumo"`
-	Categoria                string `json:"categoria"`
-	Subcategoria             string `json:"subcategoria"`
-	Prioridade               string `json:"prioridade"`
-	Sentimento               string `json:"sentimento"`
-	BairroDetectado         string `json:"bairro_detectado"`
-	EnderecoDetectado       string `json:"endereco_detectado"`
-	NomeDetectado           string `json:"nome_detectado"`
-	NecessitaRespostaUrgente bool   `json:"necessita_resposta_urgente"`
-	SugestaoResposta         string `json:"sugestao_resposta"`
-}
-
-// ClassifyDemand usa Gemini para classificar a mensagem (pode ser trocado por Groq/OpenAI)
-func ClassifyDemand(message string) (*ClassificationResult, error) {
-	ctx := context.Background()
+// ClassifyWithGemini usa Gemini diretamente (usado pelo GeminiProvider)
+func ClassifyWithGemini(ctx context.Context, message string) (*ClassificationResult, error) {
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
 		return nil, fmt.Errorf("GEMINI_API_KEY não configurada")
@@ -67,11 +52,6 @@ func ClassifyDemand(message string) (*ClassificationResult, error) {
 		return nil, fmt.Errorf("nenhum resultado da IA")
 	}
 
-	// Extrair o JSON da resposta (simulado para o exemplo)
-	// Em produção, deve-se limpar a string para garantir que é um JSON puro
-	var result ClassificationResult
-	// Erro proposital se não for JSON válido (para tratar depois)
-	err = json.Unmarshal([]byte(resp.Candidates[0].Content.Parts[0].(genai.Text)), &result)
-	
-	return &result, nil
+	rawText := resp.Candidates[0].Content.Parts[0].(genai.Text)
+	return ParseJSONResponse(string(rawText))
 }
