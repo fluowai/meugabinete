@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Cpu, MessageSquare, Send, Sparkles, X, Bot, User } from 'lucide-react';
-import { mockData } from '../hooks/mockApi';
 
 interface Message {
   id: string;
@@ -30,6 +29,14 @@ const iconMap = {
   help: MessageSquare,
 };
 
+const getBaseUrl = () => {
+  let baseUrl = import.meta.env.VITE_WHATSAPP_SERVICE_URL || 'http://localhost:3001';
+  if (baseUrl && !baseUrl.startsWith('http')) {
+    baseUrl = `https://${baseUrl}`;
+  }
+  return baseUrl;
+};
+
 export default function AIPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -42,63 +49,50 @@ export default function AIPage() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [provider, setProvider] = useState<string>('');
 
   const getAIResponse = async (userMessage: string): Promise<string> => {
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const lowerMessage = userMessage.toLowerCase();
-    
-    if (lowerMessage.includes('classificar') || lowerMessage.includes('bueiro')) {
-      return `### 🤖 Análise de Demanda via IA
+    try {
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/api/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: userMessage }],
+          system_prompt: 'Você é um assistente do Gabinete do Vice-Prefeito. Ajude a classificar, resumir e encaminhar demandas.',
+          provider: provider || undefined
+        })
+      });
       
-**Resumo:** Obstrução de bueiro com alagamento em via pública.
-**Assunto:** Saneamento / Drenagem Urbana.
-**Bairro Detectado:** Centro.
-**Prioridade Sugerida:** Alta (Risco de alagamento).
-**Encaminhamento Recomendado:** Secretaria de Obras e Serviços Urbanos (Equipe de Hidrojateamento).`;
+      if (!response.ok) {
+        throw new Error('Erro na API');
+      }
+      
+      const data = await response.json();
+      return data.response || 'Sem resposta da IA.';
+    } catch (error) {
+      console.error('Erro ao chamar IA:', error);
+      return 'Erro ao conectar com o serviço de IA. Verifique se o WhatsApp Service está rodando.';
     }
-    
-    if (lowerMessage.includes('resuma') || lowerMessage.includes('relatos')) {
-      return `### 📊 Resumo de Demandas - Bairro Centro (7 dias)
-
-Identifiquei **12 novas demandas** no bairro Centro esta semana:
-- **60%** Iluminação Pública (Lâmpadas queimadas na Praça Central)
-- **25%** Coleta de Lixo (Atraso na Rua 1)
-- **15%** Segurança (Solicitação de patrulhamento)
-
-**Tendência:** Houve um aumento de 15% nas reclamações de iluminação em comparação à semana anterior.`;
-    }
-    
-    if (lowerMessage.includes('encaminhamento') || lowerMessage.includes('iluminação')) {
-      return `### 📍 Guia de Encaminhamento
-
-Para demandas de **Iluminação Pública**, o fluxo correto é:
-1. Validar se o poste possui identificação (braço/número).
-2. Encaminhar via sistema interno para a **Secretaria de Infraestrutura (Departamento de Iluminação)**.
-3. Notificar o cidadão via WhatsApp que o protocolo foi aberto.
-
-**Dica:** Se for em praça pública, a responsabilidade é da Secretaria de Meio Ambiente e Zeladoria.`;
-    }
-    
-    if (lowerMessage.includes('ranking') || lowerMessage.includes('engajados')) {
-      return `### 🏆 Cidadãos mais Engajados
-
-Os cidadãos que mais enviaram demandas validadas recentemente são:
-1. **João Silva Santos** (Centro) - 15 demandas
-2. **Maria Oliveira** (Jardim América) - 12 demandas
-3. **Pedro Henrique** (Vila Nova) - 9 demandas
-
-Estes cidadãos costumam ser excelentes informantes sobre problemas nos bairros.`;
-    }
-    
-    return `Entendi sua mensagem. Como assistente do Gabinete, posso ajudar você a:
-- **Classificar** mensagens do WhatsApp em categorias de demandas.
-- **Resumir** o que os cidadãos de um bairro estão pedindo.
-- **Sugerir** para qual secretaria municipal encaminhar cada caso.
-- **Identificar** tendências e pontos críticos na cidade.
-
-O que deseja fazer agora?`;
   };
+
+  useEffect(() => {
+    const fetchProviders = async () => {
+      try {
+        const baseUrl = getBaseUrl();
+        const response = await fetch(`${baseUrl}/api/ai/providers`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.providers && data.providers.length > 0) {
+            setProvider(data.active || data.providers[0]);
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao buscar provedores:', error);
+      }
+    };
+    fetchProviders();
+  }, []);
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -177,13 +171,24 @@ O que deseja fazer agora?`;
             <p className="text-gray-500 text-sm">Inteligência Artificial do Gabinete 360</p>
           </div>
         </div>
-        <button
-          onClick={clearChat}
-          className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <X className="w-4 h-4" />
-          Limpar Chat
-        </button>
+        <div className="flex items-center gap-3">
+          <select 
+            value={provider} 
+            onChange={(e) => setProvider(e.target.value)}
+            className="px-4 py-2 bg-purple-50 text-purple-700 rounded-xl text-sm font-bold border-0 focus:ring-2 focus:ring-purple-500"
+          >
+            <option value="gemini">Gemini</option>
+            <option value="groq">Groq (Llama)</option>
+            <option value="openai">OpenAI</option>
+          </select>
+          <button
+            onClick={clearChat}
+            className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <X className="w-4 h-4" />
+            Limpar Chat
+          </button>
+        </div>
       </div>
 
       {showSuggestions && messages.length === 1 && (

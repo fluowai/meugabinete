@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -28,20 +28,42 @@ interface Instance {
   uptime?: string;
 }
 
-const mockInstances: Instance[] = [
-  { id: '1', name: 'Gabinete Principal', phone: '+55 48 98800-3260', status: 'connected', uptime: '12 dias' },
-  { id: '2', name: 'Atendimento Social', phone: '+55 48 97777-1111', status: 'disconnected' },
-];
-
 export default function WhatsAppHub() {
   const [activeTab, setActiveTab] = useState<Tab>('conexoes');
-  const [instances] = useState<Instance[]>(mockInstances);
+  const [instances, setInstances] = useState<Instance[]>([]);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<Instance | null>(null);
   const [qrCode, setQrCode] = useState<string>('');
   const [loadingQr, setLoadingQr] = useState(false);
   const [newInstanceName, setNewInstanceName] = useState('');
   const [showNameInput, setShowNameInput] = useState(false);
+
+  const getBaseUrl = () => {
+    let baseUrl = import.meta.env.VITE_WHATSAPP_SERVICE_URL || 'http://localhost:3001';
+    if (baseUrl && !baseUrl.startsWith('http')) {
+      baseUrl = `https://${baseUrl}`;
+    }
+    return baseUrl;
+  };
+
+  const fetchQrCode = async () => {
+    setLoadingQr(true);
+    try {
+      const baseUrl = getBaseUrl();
+      const response = await fetch(`${baseUrl}/api/qr`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (response.ok) {
+        const code = await response.text();
+        setQrCode(code);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar QR Code:', error);
+    } finally {
+      setLoadingQr(false);
+    }
+  };
 
   const fetchQrCode = async () => {
     setLoadingQr(true);
@@ -85,6 +107,7 @@ export default function WhatsAppHub() {
       status: 'disconnected'
     };
     setShowNameInput(false);
+    setInstances(prev => [...prev, newInstance]);
     openQr(newInstance);
   };
 
