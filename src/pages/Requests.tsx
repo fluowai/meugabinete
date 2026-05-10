@@ -13,7 +13,7 @@ import {
   Bot,
   User
 } from 'lucide-react';
-import { mockData } from '../hooks/mockApi';
+import { useRequests, useCitizens } from '../hooks/useApi';
 import type { Request } from '../types';
 import { cn } from '../lib/utils';
 
@@ -71,16 +71,19 @@ export default function Requests() {
     title: ''
   });
 
+  const { data: requests, loading, create } = useRequests(1, 1000);
+  const { data: citizens } = useCitizens(1, 1000);
+
   const filteredRequests = useMemo(() => {
-    let requests = [...mockData.requests];
+    let list = [...requests];
     
     if (activeTab !== 'all') {
-      requests = requests.filter(r => r.status === activeTab);
+      list = list.filter(r => r.status === activeTab);
     }
     
     if (search) {
       const searchLower = search.toLowerCase();
-      requests = requests.filter(r => 
+      list = list.filter(r => 
         r.title.toLowerCase().includes(searchLower) ||
         r.requesterName.toLowerCase().includes(searchLower) ||
         (r.subject && r.subject.toLowerCase().includes(searchLower)) ||
@@ -88,41 +91,50 @@ export default function Requests() {
       );
     }
     
-    return requests;
-  }, [activeTab, search]);
+    return list;
+  }, [activeTab, search, requests]);
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = { all: mockData.requests.length };
+    const c: Record<string, number> = { all: requests.length };
     statusTabs.slice(1).forEach(tab => {
-      c[tab.key] = mockData.requests.filter(r => r.status === tab.key).length;
+      c[tab.key] = requests.filter(r => r.status === tab.key).length;
     });
     return c;
-  }, []);
+  }, [requests]);
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const citizen = mockData.citizens.find(c => c.id === formData.requesterId);
+    const citizen = citizens.find(c => c.id === formData.requesterId);
     
-    const newRequest: Request = {
-      id: Date.now().toString(),
+    const newRequest = {
       title: formData.title || formData.subject,
       description: formData.description,
       subject: formData.subject,
       neighborhood: formData.neighborhood,
       category: 'request',
-      priority: formData.priority as any,
+      priority: formData.priority,
       status: 'open',
-      requesterId: formData.requesterId,
-      requesterName: citizen?.name || 'Cidadão Avulso',
-      requesterPhone: citizen?.phone || '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      requester_id: formData.requesterId || null,
+      requester_name: citizen?.name || 'Cidadão Avulso',
+      requester_phone: citizen?.phone || '',
     };
 
-    mockData.requests.unshift(newRequest);
-    setIsModalOpen(false);
-    setFormData({ requesterId: '', subject: '', neighborhood: '', priority: 'medium', description: '', title: '' });
+    try {
+      await create(newRequest);
+      setIsModalOpen(false);
+      setFormData({ requesterId: '', subject: '', neighborhood: '', priority: 'medium', description: '', title: '' });
+    } catch (err) {
+      console.error('Erro ao criar demanda:', err);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -288,7 +300,7 @@ export default function Requests() {
                           className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
                         >
                           <option value="">Selecione um cidadão no cadastro...</option>
-                          {mockData.citizens.map(c => (
+                          {citizens.map(c => (
                             <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>
                           ))}
                         </select>

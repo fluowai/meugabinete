@@ -55,31 +55,8 @@ export default function WhatsAppHub() {
         headers: { 'Content-Type': 'application/json' }
       });
       if (response.ok) {
-        const code = await response.text();
-        setQrCode(code);
-      }
-    } catch (error) {
-      console.error('Erro ao buscar QR Code:', error);
-    } finally {
-      setLoadingQr(false);
-    }
-  };
-
-  const fetchQrCode = async () => {
-    setLoadingQr(true);
-    try {
-      let baseUrl = import.meta.env.VITE_WHATSAPP_SERVICE_URL || '';
-      if (baseUrl && !baseUrl.startsWith('http')) {
-        baseUrl = `https://${baseUrl}`;
-      }
-      
-      const response = await fetch(`${baseUrl}/qr`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      if (response.ok) {
-        const code = await response.text();
-        setQrCode(code);
+        const data = await response.json();
+        setQrCode(data.qr || '');
       }
     } catch (error) {
       console.error('Erro ao buscar QR Code:', error);

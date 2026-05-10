@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Plus, Search, Eye, Edit2, Trash2, Users, Heart, X } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { Relationship, Citizen } from '../types';
-import * as mockApi from '../hooks/mockApi';
+import { useRelationships, useCitizens } from '../hooks/useApi';
 
 const relationshipTypes = [
   { value: 'family', label: 'Família', color: 'bg-purple-100 text-purple-800' },
@@ -21,14 +21,13 @@ const strengthConfig = {
 };
 
 export default function Relationships() {
+  const { data: relationships, loading, refresh, create, update, remove } = useRelationships();
+  const { data: citizens } = useCitizens(1, 1000);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [selectedRelationship, setSelectedRelationship] = useState<Relationship | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [relationships, setRelationships] = useState<Relationship[]>([]);
-  const [citizens, setCitizens] = useState<Citizen[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const [formData, setFormData] = useState({
     type: 'family' as Relationship['type'],
@@ -37,24 +36,6 @@ export default function Relationships() {
     strength: 'medium' as Relationship['strength'],
     notes: '',
   });
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const [rels, cits] = await Promise.all([
-        Promise.resolve(mockApi.mockData.relationships),
-        Promise.resolve(mockApi.mockData.citizens),
-      ]);
-      setRelationships(rels);
-      setCitizens(cits);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   const filteredRelationships = relationships.filter((rel) => {
     const matchesSearch = !search || 
@@ -70,10 +51,10 @@ export default function Relationships() {
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir este relacionamento?')) {
-      const index = mockApi.mockData.relationships.findIndex(r => r.id === id);
-      if (index >= 0) {
-        mockApi.mockData.relationships.splice(index, 1);
-        await loadData();
+      try {
+        await remove(id);
+      } catch (err) {
+        console.error('Erro ao excluir relacionamento:', err);
       }
     }
   };
@@ -117,35 +98,23 @@ export default function Relationships() {
   };
 
   const handleSave = async () => {
-    if (!selectedRelationship) {
-      const newRel: Relationship = {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        type: formData.type,
-        citizenId: formData.citizenId,
-        relatedToId: formData.relatedToId,
-        relatedToName: getCitizenName(formData.relatedToId),
-        strength: formData.strength,
-        notes: formData.notes,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+    try {
+      const data = {
+        ...formData,
+        related_to_name: getCitizenName(formData.relatedToId),
       };
-      mockApi.mockData.relationships.push(newRel);
-    } else {
-      const index = mockApi.mockData.relationships.findIndex(r => r.id === selectedRelationship.id);
-      if (index >= 0) {
-        mockApi.mockData.relationships[index] = {
-          ...mockApi.mockData.relationships[index],
-          ...formData,
-          relatedToName: getCitizenName(formData.relatedToId),
-          updatedAt: new Date().toISOString(),
-        };
+      if (selectedRelationship) {
+        await update(selectedRelationship.id, data);
+      } else {
+        await create(data);
       }
+      closeModal();
+    } catch (err) {
+      console.error('Erro ao salvar relacionamento:', err);
     }
-    await loadData();
-    closeModal();
   };
 
-  if (loading && !relationships.length) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />

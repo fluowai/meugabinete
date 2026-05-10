@@ -98,7 +98,7 @@ export default function RankingCitizens() {
                 <td className="px-6 py-4 text-center">
                   <div className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold">
                     <MessageSquare className="w-3 h-3" />
-                    {citizen.totalDemands || 0}
+                    {(citizen as any).totalDemands || Math.floor((citizen.score || 0) / 10)}
                   </div>
                 </td>
                 <td className="px-6 py-4">

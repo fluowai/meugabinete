@@ -26,7 +26,7 @@ export default function AppointmentList() {
   const [showModal, setShowModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
-  const { data: appointments, total, loading, refresh, create, update, remove } = useAppointments(1, 100, statusFilter);
+  const { data: appointments, loading, refresh, create, update, remove } = useAppointments(1, 100);
 
   const filteredAppointments = searchTerm
     ? appointments.filter(apt => 
@@ -179,7 +179,7 @@ export default function AppointmentList() {
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-          <span className="text-sm text-gray-500">{total} registro(s)</span>
+          <span className="text-sm text-gray-500">{appointments.length} registro(s)</span>
         </div>
       )}
 

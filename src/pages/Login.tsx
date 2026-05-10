@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { Layout, User as UserIcon, Lock, ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Layout, Lock, ArrowRight, Eye, EyeOff, Loader2, Mail } from 'lucide-react';
 import { useStore } from '../stores/appStore';
 
 export default function Login() {
@@ -17,11 +17,9 @@ export default function Login() {
     setError('');
     
     try {
-      // Small delay to simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
-      const success = await login(email, password);
-      if (!success) {
-        setError('E-mail ou senha incorretos.');
+      const result = await login(email, password);
+      if (!result.success) {
+        setError(result.error || 'E-mail ou senha incorretos.');
       }
     } catch (err) {
       setError('Ocorreu um erro ao tentar entrar.');
@@ -32,14 +30,12 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-[#0A0C10]">
-      {/* Background with Gradients and Glows */}
       <div className="absolute inset-0 z-0 bg-[#0A0C10]">
         <div className="absolute inset-0 bg-gradient-to-tr from-blue-900/20 via-[#0A0C10] to-blue-600/10" />
         <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] bg-blue-600/10 rounded-full blur-[140px]" />
         <div className="absolute bottom-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-900/20 rounded-full blur-[120px]" />
       </div>
 
-      {/* Decorative Elements */}
       <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px] z-0" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[30%] h-[30%] bg-blue-900/20 rounded-full blur-[100px] z-0" />
 
@@ -50,7 +46,6 @@ export default function Login() {
         className="w-full max-w-[420px] z-10 p-4"
       >
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-          {/* Subtle Glow */}
           <div className="absolute -top-24 -left-24 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl" />
           
           <div className="flex flex-col items-center mb-10 relative">
@@ -63,16 +58,17 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-5 relative">
             <div>
-              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block ml-1">Usuário</label>
+              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block ml-1">E-mail</label>
               <div className="relative group">
-                <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-blue-500 transition-colors" />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-blue-500 transition-colors" />
                 <input
-                  type="text"
+                  type="email"
                   required
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full h-12 bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all placeholder:text-gray-600"
-                  placeholder="admin"
+                  placeholder="seu@email.com"
                 />
               </div>
             </div>
@@ -84,10 +80,11 @@ export default function Login() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full h-12 bg-white/5 border border-white/10 rounded-2xl pl-12 pr-12 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all placeholder:text-gray-600"
-                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                  placeholder="••••••••"
                 />
                 <button
                   type="button"

@@ -1,31 +1,35 @@
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
-# Instalar dependências para compilação (se necessário)
 RUN apk add --no-cache git gcc musl-dev
 
 WORKDIR /app
 
-# Copiar arquivos de dependência
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copiar o restante do código
 COPY . .
 
-# Compilar o binário (estático para rodar no Alpine)
-RUN CGO_ENABLED=0 GOOS=linux go build -o whatsapp-service main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o whatsapp-service main.go
 
 # Final stage
-FROM alpine:latest
+FROM alpine:3.20
 
 RUN apk add --no-cache ca-certificates tzdata
 
 WORKDIR /app
 
-# Copiar o binário do builder
 COPY --from=builder /app/whatsapp-service .
-# Copiar o .env apenas para garantir, mas o Railway usará variáveis de ambiente
-COPY .env . 
+
+RUN addgroup -g 1001 appgroup && \
+    adduser -D -u 1001 -G appgroup appuser && \
+    chown -R appuser:appgroup /app
+
+USER appuser
+
+EXPOSE 3001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
 
 CMD ["./whatsapp-service"]

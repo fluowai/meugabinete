@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useDashboardStats } from '../hooks/useApi';
+import { useStore } from '../stores/appStore';
 import { mockData } from '../hooks/mockApi';
 
 interface StatCardProps {
@@ -61,7 +62,8 @@ function StatCard({ label, value, growth, icon: Icon, color, onClick }: StatCard
   );
 }
 
-export default function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
+export default function DashboardPage() {
+  const { setCurrentPage } = useStore();
   const { stats, loading } = useDashboardStats();
 
   const recentDemands = mockData.requests.slice(0, 5);
@@ -93,28 +95,28 @@ export default function DashboardPage({ onNavigate }: { onNavigate?: (page: stri
           growth={stats.citizensGrowth}
           icon={Users}
           color="bg-blue-600"
-          onClick={() => onNavigate?.('cidadaos')}
+          onClick={() => setCurrentPage?.('cidadaos')}
         />
         <StatCard
           label="Demandas Abertas"
           value={stats.openDemands}
           icon={AlertCircle}
           color="bg-red-500"
-          onClick={() => onNavigate?.('demandas')}
+          onClick={() => setCurrentPage?.('demandas')}
         />
         <StatCard
           label="Em Atendimento"
           value={stats.inProgressDemands}
           icon={Clock}
           color="bg-yellow-500"
-          onClick={() => onNavigate?.('demandas')}
+          onClick={() => setCurrentPage?.('demandas')}
         />
         <StatCard
           label="Resolvidas"
           value={stats.resolvedDemands}
           icon={CheckCircle}
           color="bg-green-600"
-          onClick={() => onNavigate?.('demandas')}
+          onClick={() => setCurrentPage?.('demandas')}
         />
       </div>
 
@@ -174,7 +176,7 @@ export default function DashboardPage({ onNavigate }: { onNavigate?: (page: stri
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">Últimas Demandas Recebidas</h2>
             <button 
-              onClick={() => onNavigate?.('demandas')}
+              onClick={() => setCurrentPage?.('demandas')}
               className="text-sm text-blue-600 hover:text-blue-700 font-medium"
             >
               Ver todas
@@ -226,7 +228,7 @@ export default function DashboardPage({ onNavigate }: { onNavigate?: (page: stri
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900">Cidadãos Engajados</h2>
             <button 
-              onClick={() => onNavigate?.('ranking-cidadaos')}
+              onClick={() => setCurrentPage?.('ranking-cidadaos')}
               className="text-sm text-blue-600 hover:text-blue-700 font-medium"
             >
               Ver ranking

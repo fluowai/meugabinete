@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, Eye, X, PenTool, FileText, Link, Image } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Eye, X, PenTool, FileText } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { Signature } from '../types';
-import { mockData } from '../hooks/mockApi';
+import { useSignatures } from '../hooks/useApi';
 
 const statusConfig = {
   active: { label: 'Ativo', className: 'bg-green-100 text-green-800' },
@@ -18,8 +18,7 @@ interface SignatureFormData {
 }
 
 export default function Signatures() {
-  const [signatures, setSignatures] = useState<Signature[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: signatures, loading, refresh, create, update, remove } = useSignatures();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -33,17 +32,6 @@ export default function Signatures() {
     status: 'active',
   });
 
-  useEffect(() => {
-    loadSignatures();
-  }, []);
-
-  const loadSignatures = async () => {
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 100));
-    setSignatures(mockData.signatures);
-    setLoading(false);
-  };
-
   const filteredSignatures = signatures.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
       s.role?.toLowerCase().includes(search.toLowerCase());
@@ -53,10 +41,10 @@ export default function Signatures() {
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta assinatura?')) {
-      const index = mockData.signatures.findIndex(s => s.id === id);
-      if (index >= 0) {
-        mockData.signatures.splice(index, 1);
-        await loadSignatures();
+      try {
+        await remove(id);
+      } catch (err) {
+        console.error('Erro ao excluir assinatura:', err);
       }
     }
   };
@@ -102,35 +90,23 @@ export default function Signatures() {
   const handleSave = async () => {
     if (!formData.name || !formData.role) return;
 
-    const now = new Date().toISOString();
-    if (selectedSignature) {
-      const index = mockData.signatures.findIndex(s => s.id === selectedSignature.id);
-      if (index >= 0) {
-        mockData.signatures[index] = {
-          ...mockData.signatures[index],
-          ...formData,
-          updatedAt: now,
-        };
+    try {
+      if (selectedSignature) {
+        await update(selectedSignature.id, formData);
+      } else {
+        await create(formData);
       }
-    } else {
-      const newSignature: Signature = {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        ...formData,
-        createdAt: now,
-        updatedAt: now,
-      };
-      mockData.signatures.push(newSignature);
+      closeModal();
+    } catch (err) {
+      console.error('Erro ao salvar assinatura:', err);
     }
-
-    await loadSignatures();
-    closeModal();
   };
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('pt-BR');
   };
 
-  if (loading && !signatures.length) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />

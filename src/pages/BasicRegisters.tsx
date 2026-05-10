@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Search, Edit2, Trash2, Eye, X, Building2, Tag, MapPin, Layers, Briefcase, Map } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { BasicRegister } from '../types';
-import { mockData } from '../hooks/mockApi';
+import { useBasicRegisters } from '../hooks/useApi';
 
 const categoryConfig: Record<string, { label: string; className: string; icon: React.ElementType }> = {
   party: { label: 'Partido', className: 'bg-blue-100 text-blue-800', icon: Building2 },
@@ -27,8 +27,7 @@ interface BasicRegisterFormData {
 }
 
 export default function BasicRegisters() {
-  const [registers, setRegisters] = useState<BasicRegister[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: registers, loading, refresh, create, update, remove } = useBasicRegisters();
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -43,17 +42,6 @@ export default function BasicRegisters() {
     status: 'active',
   });
 
-  useEffect(() => {
-    loadRegisters();
-  }, []);
-
-  const loadRegisters = async () => {
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 100));
-    setRegisters(mockData.basicRegisters);
-    setLoading(false);
-  };
-
   const filteredRegisters = registers.filter(r => {
     const matchesSearch = r.name.toLowerCase().includes(search.toLowerCase()) ||
       r.code?.toLowerCase().includes(search.toLowerCase());
@@ -64,10 +52,10 @@ export default function BasicRegisters() {
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir este registro?')) {
-      const index = mockData.basicRegisters.findIndex(r => r.id === id);
-      if (index >= 0) {
-        mockData.basicRegisters.splice(index, 1);
-        await loadRegisters();
+      try {
+        await remove(id);
+      } catch (err) {
+        console.error('Erro ao excluir registro:', err);
       }
     }
   };
@@ -113,28 +101,16 @@ export default function BasicRegisters() {
   const handleSave = async () => {
     if (!formData.name) return;
 
-    const now = new Date().toISOString();
-    if (selectedRegister) {
-      const index = mockData.basicRegisters.findIndex(r => r.id === selectedRegister.id);
-      if (index >= 0) {
-        mockData.basicRegisters[index] = {
-          ...mockData.basicRegisters[index],
-          ...formData,
-          updatedAt: now,
-        };
+    try {
+      if (selectedRegister) {
+        await update(selectedRegister.id, formData);
+      } else {
+        await create(formData);
       }
-    } else {
-      const newRegister: BasicRegister = {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        ...formData,
-        createdAt: now,
-        updatedAt: now,
-      };
-      mockData.basicRegisters.push(newRegister);
+      closeModal();
+    } catch (err) {
+      console.error('Erro ao salvar registro:', err);
     }
-
-    await loadRegisters();
-    closeModal();
   };
 
   const categoryOptions = [
@@ -150,7 +126,7 @@ export default function BasicRegisters() {
     return new Date(dateStr).toLocaleDateString('pt-BR');
   };
 
-  if (loading && !registers.length) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />

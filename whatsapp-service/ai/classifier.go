@@ -52,6 +52,10 @@ func ClassifyWithGemini(ctx context.Context, message string) (*ClassificationRes
 		return nil, fmt.Errorf("nenhum resultado da IA")
 	}
 
-	rawText := resp.Candidates[0].Content.Parts[0].(genai.Text)
-	return ParseJSONResponse(string(rawText))
+	part := resp.Candidates[0].Content.Parts[0]
+	text, ok := part.(genai.Text)
+	if !ok {
+		return nil, fmt.Errorf("unexpected response type from AI: %T", part)
+	}
+	return ParseJSONResponse(string(text))
 }

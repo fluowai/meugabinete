@@ -5,6 +5,7 @@ import {
   ChevronLeft, ChevronRight, Filter, BarChart3, EyeOff, Eye as EyeIcon
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import DOMPurify from 'dompurify';
 import type { LandingPage } from '../types';
 import { useLandingPages } from '../hooks/useApi';
 
@@ -236,7 +237,7 @@ export default function LandingPageList() {
               
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Descrição</h3>
-                <div dangerouslySetInnerHTML={{ __html: selectedPage.description }} className="prose prose-sm" />
+                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedPage.description) }} className="prose prose-sm" />
               </div>
               
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">

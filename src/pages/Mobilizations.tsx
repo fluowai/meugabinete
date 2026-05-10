@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { Mobilization } from '../types';
-import { mockData } from '../hooks/mockApi';
+import { useMobilizations } from '../hooks/useApi';
 
 const typeConfig = {
   petition: { label: 'Petição', className: 'bg-orange-100 text-orange-800', icon: FileText },
@@ -36,23 +36,11 @@ const statusConfig = {
 };
 
 export default function Mobilizations() {
-  const [mobilizations, setMobilizations] = useState<Mobilization[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: mobilizations, loading } = useMobilizations();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedMobilization, setSelectedMobilization] = useState<Mobilization | null>(null);
-
-  useEffect(() => {
-    loadMobilizations();
-  }, []);
-
-  const loadMobilizations = async () => {
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 100));
-    setMobilizations(mockData.mobilizations);
-    setLoading(false);
-  };
 
   const filteredMobilizations = mobilizations.filter(m => {
     const matchesSearch = m.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -79,7 +67,7 @@ export default function Mobilizations() {
     return Math.min(Math.round(((current || 0) / target) * 100), 100);
   };
 
-  if (loading && !mobilizations.length) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />

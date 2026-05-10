@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, Eye, Mail, Phone, X, Users, UserCheck, UserX } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Eye, Mail, Phone, X, Users, UserCheck } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { Collaborator } from '../types';
-import { mockData } from '../hooks/mockApi';
+import { useCollaborators } from '../hooks/useApi';
 
 const statusConfig = {
   active: { label: 'Ativo', className: 'bg-green-100 text-green-800' },
@@ -19,8 +19,7 @@ interface CollaboratorFormData {
 }
 
 export default function Collaborators() {
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: collaborators, loading, refresh, create, update, remove } = useCollaborators();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -35,17 +34,6 @@ export default function Collaborators() {
     status: 'active',
   });
 
-  useEffect(() => {
-    loadCollaborators();
-  }, []);
-
-  const loadCollaborators = async () => {
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 100));
-    setCollaborators(mockData.collaborators);
-    setLoading(false);
-  };
-
   const filteredCollaborators = collaborators.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.email?.toLowerCase().includes(search.toLowerCase()) ||
@@ -56,10 +44,10 @@ export default function Collaborators() {
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir este colaborador?')) {
-      const index = mockData.collaborators.findIndex(c => c.id === id);
-      if (index >= 0) {
-        mockData.collaborators.splice(index, 1);
-        await loadCollaborators();
+      try {
+        await remove(id);
+      } catch (err) {
+        console.error('Erro ao excluir colaborador:', err);
       }
     }
   };
@@ -107,35 +95,23 @@ export default function Collaborators() {
   const handleSave = async () => {
     if (!formData.name || !formData.email) return;
 
-    const now = new Date().toISOString();
-    if (selectedCollaborator) {
-      const index = mockData.collaborators.findIndex(c => c.id === selectedCollaborator.id);
-      if (index >= 0) {
-        mockData.collaborators[index] = {
-          ...mockData.collaborators[index],
-          ...formData,
-          updatedAt: now,
-        };
+    try {
+      if (selectedCollaborator) {
+        await update(selectedCollaborator.id, formData);
+      } else {
+        await create(formData);
       }
-    } else {
-      const newCollaborator: Collaborator = {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        ...formData,
-        createdAt: now,
-        updatedAt: now,
-      };
-      mockData.collaborators.push(newCollaborator);
+      closeModal();
+    } catch (err) {
+      console.error('Erro ao salvar colaborador:', err);
     }
-
-    await loadCollaborators();
-    closeModal();
   };
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('pt-BR');
   };
 
-  if (loading && !collaborators.length) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />

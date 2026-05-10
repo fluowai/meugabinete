@@ -59,8 +59,12 @@ Mensagem: %s`, message)
 		return nil, fmt.Errorf("nenhum resultado da IA")
 	}
 
-	rawText := resp.Candidates[0].Content.Parts[0].(genai.Text)
-	return ParseJSONResponse(string(rawText))
+	part := resp.Candidates[0].Content.Parts[0]
+	textVal, ok := part.(genai.Text)
+	if !ok {
+		return nil, fmt.Errorf("unexpected response type from Gemini: %T", part)
+	}
+	return ParseJSONResponse(string(textVal))
 }
 
 func (g *GeminiProvider) Chat(ctx context.Context, messages []ChatMessage, systemPrompt string) (string, error) {
@@ -86,7 +90,12 @@ func (g *GeminiProvider) Chat(ctx context.Context, messages []ChatMessage, syste
 		return "", fmt.Errorf("nenhuma resposta do Gemini")
 	}
 
-	return string(resp.Candidates[0].Content.Parts[0].(genai.Text)), nil
+	part := resp.Candidates[0].Content.Parts[0]
+	textVal, ok := part.(genai.Text)
+	if !ok {
+		return "", fmt.Errorf("unexpected response type from Gemini chat: %T", part)
+	}
+	return string(textVal), nil
 }
 
 func (g *GeminiProvider) Summarize(ctx context.Context, text string) (string, error) {
@@ -108,5 +117,10 @@ func (g *GeminiProvider) Summarize(ctx context.Context, text string) (string, er
 		return "", fmt.Errorf("nenhuma resposta do Gemini")
 	}
 
-	return string(resp.Candidates[0].Content.Parts[0].(genai.Text)), nil
+	part := resp.Candidates[0].Content.Parts[0]
+	textVal, ok := part.(genai.Text)
+	if !ok {
+		return "", fmt.Errorf("unexpected response type from Gemini chat: %T", part)
+	}
+	return string(textVal), nil
 }

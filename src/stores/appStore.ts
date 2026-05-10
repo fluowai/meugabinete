@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { supabase } from '../lib/supabase';
 import type { User, DashboardStats } from '../types';
 
@@ -14,98 +13,131 @@ interface AppState {
   setCurrentPage: (page: string) => void;
   setSidebarOpen: (open: boolean) => void;
   setDashboardStats: (stats: DashboardStats) => void;
-  login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
 }
 
-export const useStore = create<AppState>()(
-  persist(
-    (set) => ({
-      user: null,
-      isAuthenticated: false,
-      currentPage: 'dashboard',
-      dashboardStats: {
-        citizens: 0,
-        citizensGrowth: 0,
-        organizations: 0,
-        organizationsGrowth: 0,
-        appointments: 0,
-        appointmentsGrowth: 0,
-        landingPages: 0,
-        landingPagesGrowth: 0,
-        mobilizations: 0,
-        mobilizationsGrowth: 0
-      },
-      sidebarOpen: true,
-      
-      setUser: (user) => set({ user, isAuthenticated: !!user }),
-      setCurrentPage: (page) => set({ currentPage: page }),
-      setSidebarOpen: (open) => set({ sidebarOpen: open }),
-      setDashboardStats: (stats) => set({ dashboardStats: stats }),
-      
-      login: async (email, password) => {
-        // Fallback para desenvolvimento: permitir admin/admin123 independente do banco
-        if (email === 'admin' && password === 'admin123') {
-          const fallbackUser: User = { 
-            id: 'dev-admin', 
-            name: 'Admin Developer', 
-            email: 'admin@gabinete360.com', 
-            role: 'admin',
-            status: 'active',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          };
-          set({ user: fallbackUser, isAuthenticated: true });
-          return true;
+export const useStore = create<AppState>()((set) => ({
+  user: null,
+  isAuthenticated: false,
+  currentPage: 'dashboard',
+  dashboardStats: {
+    citizens: 0,
+    citizensGrowth: 0,
+    openDemands: 0,
+    inProgressDemands: 0,
+    resolvedDemands: 0,
+    topNeighborhoods: [] as { name: string; count: number }[],
+    topSubjects: [] as { name: string; count: number }[]
+  },
+  sidebarOpen: true,
+  
+  setUser: (user) => set({ user, isAuthenticated: !!user }),
+  setCurrentPage: (page) => set({ currentPage: page }),
+  setSidebarOpen: (open) => set({ sidebarOpen: open }),
+  setDashboardStats: (stats) => set({ dashboardStats: stats }),
+  
+  login: async (email, password) => {
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        return { success: false, error: 'E-mail ou senha incorretos.' };
+      }
+
+      if (authData.user) {
+        const { data: profile, error: profileError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', authData.user.id)
+          .eq('status', 'active')
+          .maybeSingle();
+
+        if (profileError || !profile) {
+          await supabase.auth.signOut();
+          return { success: false, error: 'Conta não encontrada ou inativa.' };
         }
 
-        try {
-          const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .or(`email.eq.${email},name.eq.${email}`)
-            .eq('status', 'active')
-            .maybeSingle();
+        const user: User = { 
+          id: profile.id, 
+          name: profile.name, 
+          email: profile.email, 
+          role: profile.role,
+          avatar: profile.avatar,
+          status: profile.status,
+          createdAt: profile.created_at,
+          updatedAt: profile.updated_at
+        };
+        
+        set({ user, isAuthenticated: true });
+        return { success: true };
+      }
 
-          if (error) {
-            console.error('Supabase auth error:', error);
-            return false;
-          }
-
-          if (data) {
-            // Se encontrou no banco, valida a senha (aceita plain text 'admin123' ou hash)
-            if (password === 'admin123' || data.password_hash === password) {
-              const user: User = { 
-                id: data.id, 
-                name: data.name, 
-                email: data.email, 
-                role: data.role,
-                avatar: data.avatar,
-                status: data.status,
-                createdAt: data.created_at,
-                updatedAt: data.updated_at
-              };
-              set({ user, isAuthenticated: true });
-              return true;
-            }
-          }
-          
-          return false;
-        } catch (err) {
-          console.error('Login exception:', err);
-          return false;
-        }
-      },
-      
-      logout: () => set({ user: null, isAuthenticated: false }),
-    }),
-    {
-      name: 'gabinete-360-storage',
-      partialize: (state) => ({ 
-        user: state.user, 
-        isAuthenticated: state.isAuthenticated,
-        sidebarOpen: state.sidebarOpen 
-      }),
+      return { success: false, error: 'E-mail ou senha incorretos.' };
+    } catch (err) {
+      return { success: false, error: 'Ocorreu um erro ao tentar entrar.' };
     }
-  )
-);
+  },
+  
+  logout: async () => {
+    await supabase.auth.signOut();
+    set({ user: null, isAuthenticated: false, currentPage: 'dashboard' });
+  },
+}));
+
+export const initializeAuth = async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (session?.user) {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', session.user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (profile) {
+      const user: User = { 
+        id: profile.id, 
+        name: profile.name, 
+        email: profile.email, 
+        role: profile.role,
+        avatar: profile.avatar,
+        status: profile.status,
+        createdAt: profile.created_at,
+        updatedAt: profile.updated_at
+      };
+      useStore.setState({ user, isAuthenticated: true });
+    }
+  }
+
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_OUT') {
+      useStore.setState({ user: null, isAuthenticated: false });
+    } else if (event === 'SIGNED_IN' && session?.user) {
+      const { data: profile } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', session.user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (profile) {
+        const user: User = { 
+          id: profile.id, 
+          name: profile.name, 
+          email: profile.email, 
+          role: profile.role,
+          avatar: profile.avatar,
+          status: profile.status,
+          createdAt: profile.created_at,
+          updatedAt: profile.updated_at
+        };
+        useStore.setState({ user, isAuthenticated: true });
+      }
+    }
+  });
+};
