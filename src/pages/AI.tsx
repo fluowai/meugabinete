@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Cpu, MessageSquare, Send, Sparkles, X, Bot, User } from 'lucide-react';
 
+import { supabase } from '../lib/supabase';
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -53,10 +55,14 @@ export default function AIPage() {
 
   const getAIResponse = async (userMessage: string): Promise<string> => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const baseUrl = getBaseUrl();
       const response = await fetch(`${baseUrl}/api/ai/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
         body: JSON.stringify({
           messages: [{ role: 'user', content: userMessage }],
           system_prompt: 'Você é um assistente do Gabinete do Vice-Prefeito. Ajude a classificar, resumir e encaminhar demandas.',
@@ -79,8 +85,13 @@ export default function AIPage() {
   useEffect(() => {
     const fetchProviders = async () => {
       try {
+        const { data: { session } } = await supabase.auth.getSession();
         const baseUrl = getBaseUrl();
-        const response = await fetch(`${baseUrl}/api/ai/providers`);
+        const response = await fetch(`${baseUrl}/api/ai/providers`, {
+          headers: {
+            'Authorization': `Bearer ${session?.access_token}`
+          }
+        });
         if (response.ok) {
           const data = await response.json();
           if (data.providers && data.providers.length > 0) {

@@ -15,7 +15,7 @@ import {
   Zap,
   Cpu
 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { supabase } from '../lib/supabase';
 
 type Tab = 'conexoes' | 'mensagens' | 'campanhas';
 
@@ -49,14 +49,20 @@ export default function WhatsAppHub() {
   const fetchQrCode = async () => {
     setLoadingQr(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const baseUrl = getBaseUrl();
       const response = await fetch(`${baseUrl}/api/qr`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        }
       });
       if (response.ok) {
         const data = await response.json();
         setQrCode(data.qr || '');
+      } else if (response.status === 401) {
+        console.error('Não autorizado: verifique o token JWT.');
       }
     } catch (error) {
       console.error('Erro ao buscar QR Code:', error);
