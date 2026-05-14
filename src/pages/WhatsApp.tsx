@@ -15,6 +15,7 @@ import {
   Zap,
   Cpu
 } from 'lucide-react';
+import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 
 type Tab = 'conexoes' | 'mensagens' | 'campanhas';
