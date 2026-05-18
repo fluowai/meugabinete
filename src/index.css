@@ -6,11 +6,32 @@
 }
 
 :root {
-  --bg: #F9FAFB;
-  --sidebar: #FFFFFF;
-  --border: #E5E7EB;
-  --text-main: #111827;
-  --text-muted: #6B7280;
+  --bg: #F1F5F9;
+  --sidebar: #020617;
+  --border: #E2E8F0;
+  --text-main: #020617;
+  --text-muted: #64748B;
   --accent: #2563EB;
-  --accent-light: #EFF6FF;
+  --accent-light: #DBEAFE;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }

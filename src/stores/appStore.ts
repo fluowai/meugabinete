@@ -17,6 +17,33 @@ interface AppState {
   logout: () => Promise<void>;
 }
 
+const createDevUser = (email: string): User => ({
+  id: 'dev-admin',
+  name: 'Admin Gabinete',
+  email,
+  role: 'admin',
+  status: 'active',
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+});
+
+const canUseDevLogin = (email: string, password: string) => {
+  const devLoginEmail = import.meta.env.VITE_DEV_LOGIN_EMAIL;
+  const devLoginPassword = import.meta.env.VITE_DEV_LOGIN_PASSWORD;
+  const isLocalhost =
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1';
+
+  return (
+    import.meta.env.DEV &&
+    isLocalhost &&
+    devLoginEmail &&
+    devLoginPassword &&
+    email.trim().toLowerCase() === devLoginEmail.trim().toLowerCase() &&
+    password === devLoginPassword
+  );
+};
+
 export const useStore = create<AppState>()((set) => ({
   user: null,
   isAuthenticated: false,
@@ -39,6 +66,11 @@ export const useStore = create<AppState>()((set) => ({
   
   login: async (email, password) => {
     try {
+      if (canUseDevLogin(email, password)) {
+        set({ user: createDevUser(email), isAuthenticated: true });
+        return { success: true };
+      }
+
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,

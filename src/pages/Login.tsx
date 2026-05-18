@@ -1,21 +1,22 @@
 import { useState } from 'react';
+import type { FormEvent } from 'react';
 import { motion } from 'motion/react';
-import { Layout, Lock, ArrowRight, Eye, EyeOff, Loader2, Mail } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Layout, Loader2, Lock, Mail } from 'lucide-react';
 import { useStore } from '../stores/appStore';
 
 export default function Login() {
-  const login = useStore(state => state.login);
+  const login = useStore((state) => state.login);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
+
     try {
       const result = await login(email, password);
       if (!result.success) {
@@ -29,123 +30,113 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-[#0A0C10]">
-      <div className="absolute inset-0 z-0 bg-[#0A0C10]">
-        <div className="absolute inset-0 bg-gradient-to-tr from-blue-900/20 via-[#0A0C10] to-blue-600/10" />
-        <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] bg-blue-600/10 rounded-full blur-[140px]" />
-        <div className="absolute bottom-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-900/20 rounded-full blur-[120px]" />
-      </div>
+    <div className="grid min-h-screen bg-slate-100 lg:grid-cols-[1.05fr_0.95fr]">
+      <section className="hidden bg-slate-950 p-10 text-white lg:flex lg:flex-col lg:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-blue-600 p-2.5 shadow-lg shadow-blue-950/30">
+            <Layout className="h-6 w-6" />
+          </div>
+          <div className="font-bold leading-tight">
+            GABINETE
+            <br />
+            <span className="text-blue-300">360</span>
+          </div>
+        </div>
 
-      <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px] z-0" />
-      <div className="absolute bottom-[-10%] left-[-10%] w-[30%] h-[30%] bg-blue-900/20 rounded-full blur-[100px] z-0" />
+        <div className="max-w-xl">
+          <div className="mb-5 inline-flex rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold text-blue-100">
+            Plataforma de gestão operacional
+          </div>
+          <h1 className="text-4xl font-bold tracking-tight">Atendimento, demandas e relacionamento em uma única mesa de trabalho.</h1>
+          <p className="mt-5 text-base leading-7 text-slate-300">
+            Um ambiente mais sóbrio para acompanhar o que chega, priorizar atendimento e manter a operação do gabinete organizada.
+          </p>
+        </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="w-full max-w-[420px] z-10 p-4"
-      >
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-          <div className="absolute -top-24 -left-24 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl" />
-          
-          <div className="flex flex-col items-center mb-10 relative">
-            <div className="bg-blue-600 p-3 rounded-2xl shadow-lg shadow-blue-600/30 mb-4">
-              <Layout className="w-8 h-8 text-white" />
+        <div className="grid grid-cols-3 gap-3 text-sm">
+          {['Demandas', 'Cidadãos', 'Atendimento'].map((item) => (
+            <div key={item} className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <div className="font-semibold">{item}</div>
+              <div className="mt-1 text-xs text-slate-400">Visão operacional</div>
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">GABINETE 360</h1>
-            <p className="text-gray-400 text-sm mt-2">Acesse sua plataforma de gestão inteligente</p>
+          ))}
+        </div>
+      </section>
+
+      <main className="flex items-center justify-center p-5 sm:p-8">
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }}
+          className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-7 shadow-xl shadow-slate-900/5"
+        >
+          <div className="mb-8">
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-950 text-white lg:hidden">
+              <Layout className="h-6 w-6" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-950">Entrar no sistema</h1>
+            <p className="mt-2 text-sm text-slate-500">Acesse a área administrativa do Gabinete 360.</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5 relative">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block ml-1">E-mail</label>
-              <div className="relative group">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-blue-500 transition-colors" />
+              <label className="mb-2 block text-sm font-semibold text-slate-700">E-mail</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                 <input
                   type="email"
                   required
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-12 bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all placeholder:text-gray-600"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-3 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                   placeholder="seu@email.com"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block ml-1">Senha</label>
-              <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-focus-within:text-blue-500 transition-colors" />
+              <label className="mb-2 block text-sm font-semibold text-slate-700">Senha</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full h-12 bg-white/5 border border-white/10 rounded-2xl pl-12 pr-12 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all placeholder:text-gray-600"
-                  placeholder="••••••••"
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-11 text-sm text-slate-950 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                  placeholder="Digite sua senha"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-white transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center justify-between px-1">
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <div className="relative w-4 h-4 rounded bg-white/5 border border-white/10 group-hover:border-blue-500/50 transition-colors">
-                  <input type="checkbox" className="sr-only peer" />
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity">
-                    <div className="w-2 h-2 bg-blue-500 rounded-sm" />
-                  </div>
-                </div>
-                <span className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors">Lembrar-me</span>
-              </label>
-              <button type="button" className="text-xs text-blue-500 hover:text-blue-400 transition-colors font-medium">Esqueceu a senha?</button>
-            </div>
-
-            {error && (
-              <motion.div 
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-red-400 text-xs text-center font-medium"
-              >
-                {error}
-              </motion.div>
-            )}
+            {error && <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</div>}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full h-12 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 disabled:opacity-50 text-white rounded-2xl font-bold text-sm shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center gap-2 group mt-2"
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 <>
-                  Entrar no Sistema
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  Acessar painel
+                  <ArrowRight className="h-4 w-4" />
                 </>
               )}
             </button>
           </form>
-
-          <div className="mt-10 text-center">
-            <p className="text-sm text-gray-500">
-              Não tem uma conta? <button className="text-blue-500 font-semibold hover:text-blue-400 transition-colors">Solicite acesso</button>
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-8 text-center">
-          <p className="text-[11px] text-gray-600 uppercase tracking-widest font-medium">&copy; 2026 GABINETE 360 &bull; Gestão Pública Inteligente</p>
-        </div>
-      </motion.div>
+        </motion.div>
+      </main>
     </div>
   );
 }
