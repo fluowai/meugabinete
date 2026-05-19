@@ -105,9 +105,9 @@ func main() {
 
 	allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
 	if allowedOrigins == "" {
-		allowedOrigins = "http://localhost:3000"
+		allowedOrigins = "http://localhost:3000,http://localhost:3003"
 	}
-	allowedList := splitOrigins(allowedOrigins)
+	allowedList := withDefaultOrigins(splitOrigins(allowedOrigins))
 
 	handlerWithMiddleware := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
@@ -177,6 +177,32 @@ func splitOrigins(s string) []string {
 		}
 	}
 	return result
+}
+
+func withDefaultOrigins(origins []string) []string {
+	defaults := []string{
+		"https://gabinete.consultio.com.br",
+		"https://meugabinete-production.up.railway.app",
+		"http://localhost:3000",
+		"http://localhost:3003",
+	}
+
+	for _, origin := range defaults {
+		if !containsOrigin(origins, origin) {
+			origins = append(origins, origin)
+		}
+	}
+
+	return origins
+}
+
+func containsOrigin(origins []string, target string) bool {
+	for _, origin := range origins {
+		if origin == target {
+			return true
+		}
+	}
+	return false
 }
 
 func split(s, sep string) []string {
