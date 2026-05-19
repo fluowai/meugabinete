@@ -62,6 +62,7 @@ export default function Requests() {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<StatusTab>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const protocolPreview = useMemo(() => `#${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`, []);
   const [formData, setFormData] = useState({
     requesterId: '',
     subject: '',
@@ -74,6 +75,14 @@ export default function Requests() {
   const { data: requests, loading, create } = useRequests(1, 1000);
   const { data: citizens } = useCitizens(1, 1000);
 
+  const getRequester = (request: Request) => {
+    const citizen = citizens.find(c => c.id === request.requesterId);
+    return {
+      name: request.requesterName || citizen?.name || 'Cidadão não informado',
+      phone: request.requesterPhone || citizen?.phone || '',
+    };
+  };
+
   const filteredRequests = useMemo(() => {
     let list = [...requests];
     
@@ -85,14 +94,14 @@ export default function Requests() {
       const searchLower = search.toLowerCase();
       list = list.filter(r => 
         r.title.toLowerCase().includes(searchLower) ||
-        r.requesterName.toLowerCase().includes(searchLower) ||
+        getRequester(r).name.toLowerCase().includes(searchLower) ||
         (r.subject && r.subject.toLowerCase().includes(searchLower)) ||
         (r.neighborhood && r.neighborhood.toLowerCase().includes(searchLower))
       );
     }
     
     return list;
-  }, [activeTab, search, requests]);
+  }, [activeTab, search, requests, citizens]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: requests.length };
@@ -104,8 +113,6 @@ export default function Requests() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const citizen = citizens.find(c => c.id === formData.requesterId);
-    
     const newRequest = {
       title: formData.title || formData.subject,
       description: formData.description,
@@ -115,8 +122,6 @@ export default function Requests() {
       priority: formData.priority,
       status: 'open',
       requester_id: formData.requesterId || null,
-      requester_name: citizen?.name || 'Cidadão Avulso',
-      requester_phone: citizen?.phone || '',
     };
 
     try {
@@ -200,7 +205,10 @@ export default function Requests() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredRequests.map((request) => (
+              {filteredRequests.map((request) => {
+                const requester = getRequester(request);
+
+                return (
                 <tr key={request.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
@@ -208,8 +216,8 @@ export default function Requests() {
                         <MessageSquare className="w-4 h-4 text-blue-600" />
                       </div>
                       <div>
-                        <div className="font-medium text-gray-900">{request.requesterName}</div>
-                        <div className="text-xs text-gray-500">{request.requesterPhone}</div>
+                        <div className="font-medium text-gray-900">{requester.name}</div>
+                        <div className="text-xs text-gray-500">{requester.phone}</div>
                       </div>
                     </div>
                   </td>
@@ -254,7 +262,8 @@ export default function Requests() {
                     </button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -274,7 +283,7 @@ export default function Requests() {
                   <h2 className="text-xl font-black text-gray-900 tracking-tight">Abertura de Demanda Popular</h2>
                   <div className="flex items-center gap-2 text-xs font-bold text-blue-600 uppercase tracking-widest mt-0.5">
                     <Clock className="w-3 h-3" />
-                    Protocolo: #{Math.floor(Math.random() * 900000) + 100000}/2026
+                    Protocolo: {protocolPreview}
                   </div>
                 </div>
               </div>
