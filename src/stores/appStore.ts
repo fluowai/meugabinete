@@ -40,17 +40,6 @@ const createUserFromAuth = (authUser: any): User => ({
   updatedAt: authUser.updated_at || authUser.created_at || now(),
 });
 
-const mapProfileToUser = (profile: any): User => ({
-  id: profile.id,
-  name: profile.name,
-  email: profile.email,
-  role: profile.role,
-  avatar: profile.avatar,
-  status: profile.status,
-  createdAt: profile.created_at,
-  updatedAt: profile.updated_at,
-});
-
 const canUseDevLogin = (email: string, password: string) => {
   const devLoginEmail = import.meta.env.VITE_DEV_LOGIN_EMAIL;
   const devLoginPassword = import.meta.env.VITE_DEV_LOGIN_PASSWORD;
@@ -104,14 +93,7 @@ export const useStore = create<AppState>()((set) => ({
       }
 
       if (authData.user) {
-        const { data: profile } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', authData.user.id)
-          .eq('status', 'active')
-          .maybeSingle();
-
-        const user = profile ? mapProfileToUser(profile) : createUserFromAuth(authData.user);
+        const user = createUserFromAuth(authData.user);
         set({ user, isAuthenticated: true });
         return { success: true };
       }
@@ -132,14 +114,7 @@ export const initializeAuth = async () => {
   const { data: { session } } = await supabase.auth.getSession();
 
   if (session?.user) {
-    const { data: profile } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', session.user.id)
-      .eq('status', 'active')
-      .maybeSingle();
-
-    const user = profile ? mapProfileToUser(profile) : createUserFromAuth(session.user);
+    const user = createUserFromAuth(session.user);
     useStore.setState({ user, isAuthenticated: true });
   }
 
@@ -147,14 +122,7 @@ export const initializeAuth = async () => {
     if (event === 'SIGNED_OUT') {
       useStore.setState({ user: null, isAuthenticated: false });
     } else if (event === 'SIGNED_IN' && session?.user) {
-      const { data: profile } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', session.user.id)
-        .eq('status', 'active')
-        .maybeSingle();
-
-      const user = profile ? mapProfileToUser(profile) : createUserFromAuth(session.user);
+      const user = createUserFromAuth(session.user);
       useStore.setState({ user, isAuthenticated: true });
     }
   });
