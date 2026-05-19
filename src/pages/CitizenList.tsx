@@ -6,7 +6,6 @@ import {
   Trash2, 
   Eye,
   Phone,
-  Mail,
   MapPin,
   X,
   ChevronLeft,
@@ -105,12 +104,10 @@ export default function CitizenList() {
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px] md:min-w-0">
+          <table className="w-full min-w-[640px] md:min-w-0">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Nome</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">CPF</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden lg:table-cell">Email</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">Telefone</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden xl:table-cell">Cidade/UF</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
@@ -121,7 +118,7 @@ export default function CitizenList() {
             <tbody>
               {citizens.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-16 text-center">
+                  <td colSpan={6} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <Users className="w-12 h-12 text-gray-300" />
                       <p className="text-gray-500">Nenhum cidadão encontrado</p>
@@ -135,14 +132,8 @@ export default function CitizenList() {
                     <td className="px-4 py-4">
                       <div className="flex flex-col">
                         <span className="text-sm font-medium text-gray-900">{citizen.name}</span>
-                        <span className="text-xs text-gray-500 sm:hidden">{citizen.cpf}</span>
+                        <span className="text-xs text-gray-500 md:hidden">{citizen.phone || '-'}</span>
                       </div>
-                    </td>
-                    <td className="px-4 py-4 hidden sm:table-cell">
-                      <span className="text-sm text-gray-500">{citizen.cpf || '-'}</span>
-                    </td>
-                    <td className="px-4 py-4 hidden lg:table-cell">
-                      <span className="text-sm text-gray-500">{citizen.email || '-'}</span>
                     </td>
                     <td className="px-4 py-4 hidden md:table-cell">
                       <span className="text-sm text-gray-500">{citizen.phone || '-'}</span>
@@ -269,28 +260,12 @@ export default function CitizenList() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3 text-sm">
-                  <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <div className="flex flex-col">
-                    <span className="text-gray-500 text-xs">Email</span>
-                    <span className="text-gray-900">{selectedCitizen.email || 'Email não informado'}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
                   <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   <div className="flex flex-col">
                     <span className="text-gray-500 text-xs">Telefone</span>
                     <span className="text-gray-900">{selectedCitizen.phone || 'Telefone não informado'}</span>
                   </div>
                 </div>
-                {selectedCitizen.cpf && (
-                  <div className="flex items-center gap-3 text-sm">
-                    <span className="w-4 flex-shrink-0" />
-                    <div className="flex flex-col">
-                      <span className="text-gray-500 text-xs">CPF</span>
-                      <span className="text-gray-900">{selectedCitizen.cpf}</span>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {selectedCitizen.tags.length > 0 && (
@@ -319,3 +294,4 @@ export default function CitizenList() {
     </div>
   );
 }
+

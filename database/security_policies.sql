@@ -22,14 +22,9 @@ TO authenticated
 USING (auth.uid() = id);
 
 -- Admins podem ver todos os usuários
-CREATE POLICY "Admins can view all users" 
-ON users FOR SELECT 
-TO authenticated 
-USING (
-  EXISTS (
-    SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin'
-  )
-);
+-- Nao crie uma policy em users que consulte a propria tabela users.
+-- Isso causa recursao infinita no RLS. Listagens administrativas
+-- devem usar service_role; usuarios autenticados leem o proprio perfil.
 
 -- 2. Política para 'citizens'
 -- Todos os usuários autenticados podem ver e editar cidadãos (Escopo de Gabinete)
@@ -66,14 +61,11 @@ ON basic_registers FOR SELECT
 TO authenticated 
 USING (true);
 
-CREATE POLICY "Admins can manage basic registers" 
+CREATE POLICY "Authenticated users can manage basic registers" 
 ON basic_registers FOR ALL 
 TO authenticated 
-USING (
-  EXISTS (
-    SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin'
-  )
-);
+USING (true)
+WITH CHECK (true);
 
 -- 7. Política para 'whatsapp_campaigns'
 CREATE POLICY "Authenticated users can manage campaigns" 
