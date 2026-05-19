@@ -1,16 +1,17 @@
-import { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Edit2, 
-  Trash2, 
-  Eye,
-  Phone,
-  MapPin,
-  X,
+import { useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
+import {
   ChevronLeft,
   ChevronRight,
-  Users
+  Edit2,
+  Eye,
+  MapPin,
+  Phone,
+  Plus,
+  Search,
+  Trash2,
+  Users,
+  X,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { Citizen } from '../types';
@@ -23,24 +24,40 @@ const statusConfig = {
   inactive: { label: 'Inativo', className: 'bg-gray-100 text-gray-600' },
 };
 
+const initialFormData = {
+  name: '',
+  phone: '',
+  city: '',
+  state: '',
+  neighborhood: '',
+  status: 'lead' as Citizen['status'],
+  notes: '',
+};
+
 export default function CitizenList() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [formData, setFormData] = useState(initialFormData);
   const [selectedCitizen, setSelectedCitizen] = useState<Citizen | null>(null);
 
-  const { 
-    data: citizens, 
-    loading, 
-    total, 
-    page: currentPage, 
-    totalPages, 
-    refresh, 
-    create, 
-    update, 
-    remove 
+  const {
+    data: citizens,
+    loading,
+    total,
+    page: currentPage,
+    totalPages,
+    create,
+    remove,
   } = useCitizens(page, 10, search);
+
+  const displayedCitizens = statusFilter
+    ? citizens.filter((citizen) => citizen.status === statusFilter)
+    : citizens;
 
   useEffect(() => {
     setPage(1);
@@ -60,6 +77,47 @@ export default function CitizenList() {
   const closeModal = () => {
     setShowModal(false);
     setSelectedCitizen(null);
+  };
+
+  const openCreateModal = () => {
+    setFormError('');
+    setFormData(initialFormData);
+    setShowCreateModal(true);
+  };
+
+  const closeCreateModal = () => {
+    if (saving) return;
+    setShowCreateModal(false);
+    setFormError('');
+  };
+
+  const handleCreateCitizen = async (e: FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+
+    if (!formData.name.trim()) {
+      setFormError('Informe o nome do cidadão.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await create({
+        name: formData.name.trim(),
+        phone: formData.phone.trim() || null,
+        city: formData.city.trim() || null,
+        state: formData.state.trim().toUpperCase() || null,
+        neighborhood: formData.neighborhood.trim() || null,
+        status: formData.status,
+        notes: formData.notes.trim() || null,
+      });
+      setPage(1);
+      closeCreateModal();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Não foi possível cadastrar o cidadão.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading && !citizens.length) {
@@ -96,7 +154,10 @@ export default function CitizenList() {
             <option value="inactive">Inativo</option>
           </select>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+        <button
+          onClick={openCreateModal}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+        >
           <Plus className="w-4 h-4" />
           Novo Cidadão
         </button>
@@ -116,7 +177,7 @@ export default function CitizenList() {
               </tr>
             </thead>
             <tbody>
-              {citizens.length === 0 ? (
+              {displayedCitizens.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
@@ -127,7 +188,7 @@ export default function CitizenList() {
                   </td>
                 </tr>
               ) : (
-                citizens.map((citizen) => (
+                displayedCitizens.map((citizen) => (
                   <tr key={citizen.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-4">
                       <div className="flex flex-col">
@@ -227,6 +288,134 @@ export default function CitizenList() {
         </div>
       )}
 
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={closeCreateModal}>
+          <form
+            onSubmit={handleCreateCitizen}
+            className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Novo cidadão</h2>
+                <p className="text-sm text-gray-500 mt-1">Cadastre os dados básicos para atendimento.</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeCreateModal}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nome *</label>
+                <input
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full h-11 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  placeholder="Nome completo"
+                  autoFocus
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Telefone</label>
+                  <input
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="w-full h-11 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    placeholder="(11) 99999-9999"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value as Citizen['status'] })}
+                    className="w-full h-11 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    <option value="lead">Novo</option>
+                    <option value="prospect">Recorrente</option>
+                    <option value="client">Engajado</option>
+                    <option value="inactive">Inativo</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_90px] gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Cidade</label>
+                  <input
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    className="w-full h-11 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    placeholder="São Paulo"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">UF</label>
+                  <input
+                    value={formData.state}
+                    onChange={(e) => setFormData({ ...formData, state: e.target.value.slice(0, 2) })}
+                    className="w-full h-11 px-3 border border-gray-200 rounded-lg text-sm uppercase focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    placeholder="SP"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Bairro</label>
+                <input
+                  value={formData.neighborhood}
+                  onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
+                  className="w-full h-11 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  placeholder="Centro"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Observações</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  rows={4}
+                  className="w-full px-3 py-3 border border-gray-200 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  placeholder="Contexto do atendimento, demanda inicial ou observações importantes."
+                />
+              </div>
+
+              {formError && (
+                <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                  {formError}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={closeCreateModal}
+                disabled={saving}
+                className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
+              >
+                {saving ? 'Salvando...' : 'Cadastrar cidadão'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {showModal && selectedCitizen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={closeModal}>
           <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
@@ -253,7 +442,7 @@ export default function CitizenList() {
                   <div className="flex flex-col">
                     <span className="text-gray-500 text-xs">Endereço</span>
                     <span className="text-gray-900">
-                      {selectedCitizen.city && selectedCitizen.state 
+                      {selectedCitizen.city && selectedCitizen.state
                         ? `${selectedCitizen.address || ''} ${selectedCitizen.addressNumber || ''} ${selectedCitizen.complement || ''} - ${selectedCitizen.neighborhood || ''}, ${selectedCitizen.city}/${selectedCitizen.state} ${selectedCitizen.cep || ''}`.trim()
                         : 'Endereço não informado'}
                     </span>
@@ -294,4 +483,3 @@ export default function CitizenList() {
     </div>
   );
 }
-
