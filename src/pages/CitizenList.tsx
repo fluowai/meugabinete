@@ -27,6 +27,10 @@ const statusConfig = {
 const initialFormData = {
   name: '',
   phone: '',
+  cep: '',
+  address: '',
+  addressNumber: '',
+  complement: '',
   city: '',
   state: '',
   neighborhood: '',
@@ -58,6 +62,15 @@ export default function CitizenList() {
   const displayedCitizens = statusFilter
     ? citizens.filter((citizen) => citizen.status === statusFilter)
     : citizens;
+
+  const formatAddress = (citizen: Citizen) => {
+    const street = [citizen.address, citizen.addressNumber].filter(Boolean).join(', ');
+    const cityState = citizen.city && citizen.state ? `${citizen.city}/${citizen.state}` : citizen.city || citizen.state;
+    const area = [citizen.neighborhood, cityState].filter(Boolean).join(' - ');
+    const cep = citizen.cep ? `CEP ${citizen.cep}` : '';
+
+    return [street, citizen.complement, area, cep].filter(Boolean).join(' | ');
+  };
 
   useEffect(() => {
     setPage(1);
@@ -100,11 +113,20 @@ export default function CitizenList() {
       return;
     }
 
+    if (!formData.cep.trim() || !formData.address.trim() || !formData.addressNumber.trim() || !formData.neighborhood.trim()) {
+      setFormError('Informe CEP, rua, numero e bairro do cidadao.');
+      return;
+    }
+
     setSaving(true);
     try {
       await create({
         name: formData.name.trim(),
         phone: formData.phone.trim() || null,
+        cep: formData.cep.trim() || null,
+        address: formData.address.trim() || null,
+        address_number: formData.addressNumber.trim() || null,
+        complement: formData.complement.trim() || null,
         city: formData.city.trim() || null,
         state: formData.state.trim().toUpperCase() || null,
         neighborhood: formData.neighborhood.trim() || null,
@@ -170,7 +192,7 @@ export default function CitizenList() {
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Nome</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">Telefone</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden xl:table-cell">Cidade/UF</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden xl:table-cell">Endereco</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">Tags</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Ações</th>
@@ -201,7 +223,7 @@ export default function CitizenList() {
                     </td>
                     <td className="px-4 py-4 hidden xl:table-cell">
                       <span className="text-sm text-gray-500">
-                        {citizen.city && citizen.state ? `${citizen.city}/${citizen.state}` : '-'}
+                        {formatAddress(citizen) || '-'}
                       </span>
                     </td>
                     <td className="px-4 py-4">
@@ -346,7 +368,46 @@ export default function CitizenList() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_90px] gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-[150px_1fr_110px] gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">CEP *</label>
+                  <input
+                    value={formData.cep}
+                    onChange={(e) => setFormData({ ...formData, cep: e.target.value })}
+                    className="w-full h-11 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    placeholder="00000-000"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Rua *</label>
+                  <input
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    className="w-full h-11 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    placeholder="Rua, avenida ou travessa"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Numero *</label>
+                  <input
+                    value={formData.addressNumber}
+                    onChange={(e) => setFormData({ ...formData, addressNumber: e.target.value })}
+                    className="w-full h-11 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    placeholder="123"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_90px] gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Bairro *</label>
+                  <input
+                    value={formData.neighborhood}
+                    onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
+                    className="w-full h-11 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    placeholder="Centro"
+                  />
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Cidade</label>
                   <input
@@ -368,12 +429,12 @@ export default function CitizenList() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Bairro</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Complemento</label>
                 <input
-                  value={formData.neighborhood}
-                  onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
+                  value={formData.complement}
+                  onChange={(e) => setFormData({ ...formData, complement: e.target.value })}
                   className="w-full h-11 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                  placeholder="Centro"
+                  placeholder="Apartamento, bloco, ponto de referencia..."
                 />
               </div>
 
