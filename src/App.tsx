@@ -38,6 +38,7 @@ import RankingCitizens from './pages/RankingCitizens';
 import ServiceAgents from './pages/ServiceAgents';
 import Team from './pages/Team';
 import Login from './pages/Login';
+import SettingsPage from './pages/Settings';
 
 type NavItem = {
   id: string;
@@ -60,7 +61,7 @@ const navItems: NavItem[] = [
   { id: 'agentes', label: 'Central de Agentes', icon: Bot, component: <ServiceAgents />, category: 'gestao' },
   { id: 'equipe', label: 'Equipe', icon: UserCheck, component: <Team />, category: 'gestao' },
   { id: 'colaboradores', label: 'Colaboradores', icon: FolderOpen, component: <Collaborators />, category: 'configuracoes' },
-  { id: 'configuracoes', label: 'Configurações', icon: Settings, component: <div className="flex h-96 items-center justify-center text-slate-500">Página de configurações em construção</div>, category: 'configuracoes' },
+  { id: 'configuracoes', label: 'Configurações', icon: Settings, component: <SettingsPage />, category: 'configuracoes' },
 ];
 
 const categories = [
@@ -119,11 +120,11 @@ export default function App() {
         }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
         className={cn(
-          'z-40 flex shrink-0 flex-col overflow-hidden bg-slate-950 text-slate-200 shadow-2xl shadow-slate-950/20',
+          'z-40 flex shrink-0 flex-col overflow-hidden bg-slate-950 text-slate-200 shadow-2xl shadow-slate-950/20 border-r border-slate-900',
           isMobile ? 'fixed inset-y-0 left-0' : 'relative',
         )}
       >
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 px-4">
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-900 px-4">
           <div className="flex min-w-0 items-center gap-3">
             <div className="rounded-xl bg-blue-600 p-2 shadow-lg shadow-blue-950/30">
               <Layout className="h-5 w-5 text-white" />
@@ -141,7 +142,7 @@ export default function App() {
             )}
           </div>
           {isMobile && (
-            <button onClick={() => setSidebarOpen(false)} className="p-2 text-slate-400 hover:text-white">
+            <button onClick={() => setSidebarOpen(false)} className="p-2 text-zinc-400 hover:text-white">
               <Menu className="h-5 w-5" />
             </button>
           )}
@@ -155,7 +156,7 @@ export default function App() {
             return (
               <div key={cat.key} className="mb-5">
                 {(sidebarOpen || isMobile) && (
-                  <div className="mb-2 mt-3 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 first:mt-0">
+                  <div className="mb-2.5 mt-3 px-3.5 text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400/60 first:mt-0">
                     {cat.label}
                   </div>
                 )}
@@ -171,20 +172,20 @@ export default function App() {
                           if (isMobile) setSidebarOpen(false);
                         }}
                         className={cn(
-                          'group relative flex w-full items-center rounded-xl px-3 py-2.5 text-sm transition-all',
+                          'group relative flex w-full items-center rounded-xl px-3.5 py-2.5 text-sm transition-all duration-200',
                           isActive
-                            ? 'bg-white font-semibold text-slate-950 shadow-sm'
-                            : 'text-slate-400 hover:bg-white/10 hover:text-white',
+                            ? 'bg-blue-600 text-white font-semibold border border-blue-500/30 shadow-lg shadow-blue-950/40'
+                            : 'text-zinc-300 hover:bg-white/5 hover:text-white',
                         )}
                       >
-                        <item.icon className={cn('h-[18px] w-[18px] shrink-0', isActive ? 'text-blue-600' : 'text-slate-500 group-hover:text-slate-200')} />
+                        <item.icon className={cn('h-[18px] w-[18px] shrink-0 transition-colors duration-200', isActive ? 'text-white' : 'text-zinc-400 group-hover:text-white')} />
                         {(sidebarOpen || isMobile) && (
                           <>
                             <span className="ml-3 flex-1 truncate text-left">{item.label}</span>
-                            <ChevronRight className={cn('h-3.5 w-3.5 transition-transform', isActive ? 'rotate-90 text-slate-400' : 'opacity-0 group-hover:opacity-60')} />
+                            <ChevronRight className={cn('h-3.5 w-3.5 transition-all duration-200', isActive ? 'rotate-90 text-white' : 'opacity-0 -translate-x-1 group-hover:opacity-60 group-hover:translate-x-0')} />
                           </>
                         )}
-                        {isActive && <div className="absolute bottom-2 left-0 top-2 w-1 rounded-r bg-blue-600" />}
+                        {isActive && <div className="absolute bottom-2 left-0 top-2 w-1 rounded-r bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]" />}
                       </button>
                     );
                   })}

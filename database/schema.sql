@@ -103,6 +103,128 @@ CREATE TABLE IF NOT EXISTS request_attachments (
 );
 
 -- =====================================================
+-- WHATSAPP - CONVERSAS, GRUPOS, MENSAGENS E AGENTES
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS whatsapp_chats (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chat_jid TEXT UNIQUE NOT NULL,
+    chat_type VARCHAR(20) NOT NULL CHECK (chat_type IN ('direct', 'group')),
+    display_name VARCHAR(255) NOT NULL,
+    normalized_phone VARCHAR(20),
+    country_code VARCHAR(8),
+    group_name VARCHAR(255),
+    profile_picture_url TEXT,
+    participant_count INTEGER DEFAULT 0,
+    last_message TEXT,
+    last_message_at TIMESTAMP,
+    unread_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_whatsapp_chats_type ON whatsapp_chats(chat_type);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_chats_last_message_at ON whatsapp_chats(last_message_at DESC);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_chats_phone ON whatsapp_chats(normalized_phone);
+
+CREATE TABLE IF NOT EXISTS whatsapp_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    chat_id UUID REFERENCES whatsapp_chats(id) ON DELETE CASCADE,
+    message_id TEXT UNIQUE NOT NULL,
+    chat_jid TEXT NOT NULL,
+    sender_jid TEXT,
+    sender_push_name VARCHAR(255),
+    sender_phone VARCHAR(20),
+    sender_country_code VARCHAR(8),
+    sender_profile_picture_url TEXT,
+    sender_display_name VARCHAR(255),
+    is_group BOOLEAN DEFAULT false,
+    group_name VARCHAR(255),
+    message_type VARCHAR(30) DEFAULT 'text',
+    text_content TEXT,
+    media_url TEXT,
+    media_mime_type VARCHAR(255),
+    media_filename VARCHAR(255),
+    quoted_message_id TEXT,
+    mentioned_phones JSONB DEFAULT '[]'::jsonb,
+    raw_payload JSONB DEFAULT '{}'::jsonb,
+    received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_request_id UUID REFERENCES requests(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_chat_id ON whatsapp_messages(chat_id);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_received_at ON whatsapp_messages(received_at DESC);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_sender_phone ON whatsapp_messages(sender_phone);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_is_group ON whatsapp_messages(is_group);
+
+CREATE TABLE IF NOT EXISTS whatsapp_group_participants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    group_jid TEXT NOT NULL,
+    participant_jid TEXT NOT NULL,
+    normalized_phone VARCHAR(20) NOT NULL,
+    country_code VARCHAR(8),
+    push_name VARCHAR(255),
+    display_name VARCHAR(255) NOT NULL,
+    profile_picture_url TEXT,
+    is_admin BOOLEAN DEFAULT false,
+    is_super_admin BOOLEAN DEFAULT false,
+    last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(group_jid, participant_jid)
+);
+
+CREATE INDEX IF NOT EXISTS idx_whatsapp_group_participants_group ON whatsapp_group_participants(group_jid);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_group_participants_phone ON whatsapp_group_participants(normalized_phone);
+
+CREATE TABLE IF NOT EXISTS whatsapp_connections (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    instance_key VARCHAR(100) UNIQUE NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    provider VARCHAR(50) DEFAULT 'whatsmeow',
+    status VARCHAR(30) DEFAULT 'disconnected',
+    connected BOOLEAN DEFAULT false,
+    jid TEXT,
+    phone VARCHAR(20),
+    push_name VARCHAR(255),
+    profile_picture_url TEXT,
+    last_seen_at TIMESTAMP,
+    last_connected_at TIMESTAMP,
+    settings JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_whatsapp_connections_status ON whatsapp_connections(status);
+CREATE INDEX IF NOT EXISTS idx_whatsapp_connections_instance ON whatsapp_connections(instance_key);
+
+CREATE TABLE IF NOT EXISTS service_agents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(20) NOT NULL CHECK (type IN ('ai', 'human')),
+    role VARCHAR(100),
+    specialty VARCHAR(255),
+    prompt TEXT,
+    active BOOLEAN DEFAULT true,
+    escalation_rules JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(name)
+);
+
+CREATE TABLE IF NOT EXISTS agent_actions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    agent_id UUID REFERENCES service_agents(id),
+    message_id UUID REFERENCES whatsapp_messages(id),
+    request_id UUID REFERENCES requests(id),
+    action_type VARCHAR(100) NOT NULL,
+    result JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =====================================================
 -- CADASTROS BÁSICOS
 -- =====================================================
 
@@ -152,6 +274,10 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_citizens_updated_at BEFORE UPDATE ON citizens FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_requests_updated_at BEFORE UPDATE ON requests FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_whatsapp_campaigns_updated_at BEFORE UPDATE ON whatsapp_campaigns FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_whatsapp_chats_updated_at BEFORE UPDATE ON whatsapp_chats FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_whatsapp_group_participants_updated_at BEFORE UPDATE ON whatsapp_group_participants FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_whatsapp_connections_updated_at BEFORE UPDATE ON whatsapp_connections FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_service_agents_updated_at BEFORE UPDATE ON service_agents FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================================
 -- DADOS INICIAIS
@@ -169,4 +295,17 @@ INSERT INTO basic_registers (category, name, code) VALUES
     ('demand_subject', 'Segurança', 'SEGU'),
     ('demand_subject', 'Saúde', 'SAUD'),
     ('demand_subject', 'Saneamento', 'SANE')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO service_agents (name, type, role, specialty, prompt, escalation_rules) VALUES
+    ('Agente de Triagem Geral', 'ai', 'triage', 'Classificacao inicial de mensagens do WhatsApp', 'Classifique mensagens recebidas, identifique se viram demanda, defina prioridade, bairro, assunto e se precisa atendimento humano.', '{"escalate_priorities":["urgent","high"],"can_create_request":true}'::jsonb),
+    ('Agente de Infraestrutura Urbana', 'ai', 'infrastructure', 'Buracos, iluminacao, poda, limpeza e zeladoria', 'Analise demandas de infraestrutura urbana, extraia localizacao, urgencia e orgao responsavel sugerido.', '{"subjects":["iluminacao","buraco","poda","limpeza","saneamento"]}'::jsonb),
+    ('Agente de Saude e Assistencia', 'ai', 'health_social', 'Saude, medicamentos, consultas e vulnerabilidade social', 'Identifique demandas de saude e assistencia social, sinalize casos sensiveis e urgentes.', '{"requires_human_review":true,"sensitive":true}'::jsonb),
+    ('Agente de Educacao e Comunidade', 'ai', 'education_community', 'Escolas, creches, liderancas e associacoes', 'Organize demandas de educacao e relacoes comunitarias, relacionando cidadaos, escolas e bairros.', '{"subjects":["educacao","creche","comunidade"]}'::jsonb),
+    ('Agente de Agenda Politica', 'ai', 'agenda', 'Pedidos de reuniao, eventos e compromissos', 'Transforme pedidos de agenda em sugestoes de compromisso, com solicitante, local, data e prioridade politica.', '{"can_create_appointment":true}'::jsonb),
+    ('Agente de Mobilizacao', 'ai', 'mobilization', 'Abaixo-assinados, eventos, voluntarios e campanhas territoriais', 'Identifique oportunidades de mobilizacao e organize grupos, bairros, liderancas e pautas recorrentes.', '{"can_suggest_campaign":true}'::jsonb),
+    ('Agente de Comunicacao', 'ai', 'communications', 'Resposta ao cidadao e comunicacao publica', 'Sugira respostas claras, educadas e institucionais para WhatsApp, grupos e comunicados publicos.', '{"can_suggest_reply":true}'::jsonb),
+    ('Agente LGPD e Risco', 'ai', 'compliance', 'Dados pessoais, ataques, ameacas e risco juridico', 'Sinalize mensagens com dados sensiveis, ameacas, ataques pessoais ou risco juridico antes de encaminhar.', '{"requires_human_review":true,"sensitive":true}'::jsonb),
+    ('Assessor de Demandas Urgentes', 'human', 'urgent_case_owner', 'Tratamento humano de casos urgentes e sensiveis', 'Recebe demandas escaladas por urgencia, recorrencia, risco social ou contexto politico delicado.', '{"requires_human_review":true}'::jsonb),
+    ('Coordenador de Gabinete', 'human', 'chief_of_staff', 'Priorizacao politica e distribuicao para equipe', 'Define prioridade politica, distribui demandas para responsaveis e acompanha cobrancas externas.', '{"can_assign":true}'::jsonb)
 ON CONFLICT DO NOTHING;

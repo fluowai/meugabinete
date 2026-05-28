@@ -4,17 +4,34 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 )
 
 // SaveToSupabase envia um JSON para qualquer tabela do Supabase
 func SaveToSupabase(table string, data interface{}) ([]byte, error) {
+	return saveToSupabase(table, "", data)
+}
+
+func UpsertToSupabase(table string, conflictTarget string, data interface{}) ([]byte, error) {
+	return saveToSupabase(table, conflictTarget, data)
+}
+
+func saveToSupabase(table string, conflictTarget string, data interface{}) ([]byte, error) {
 	supabaseURL := os.Getenv("SUPABASE_URL")
 	supabaseKey := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
+	if supabaseURL == "" || supabaseKey == "" {
+		return nil, fmt.Errorf("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórios")
+	}
 
 	url := fmt.Sprintf("%s/rest/v1/%s", supabaseURL, table)
-	
+	if conflictTarget != "" {
+		url = fmt.Sprintf("%s?on_conflict=%s", url, conflictTarget)
+	}
+
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
@@ -28,9 +45,13 @@ func SaveToSupabase(table string, data interface{}) ([]byte, error) {
 	req.Header.Set("Authorization", "Bearer "+supabaseKey)
 	req.Header.Set("apikey", supabaseKey)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Prefer", "return=representation") // Para retornar o objeto criado (com ID e Protocolo)
+	if conflictTarget != "" {
+		req.Header.Set("Prefer", "resolution=merge-duplicates,return=representation")
+	} else {
+		req.Header.Set("Prefer", "return=representation")
+	}
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -38,16 +59,53 @@ func SaveToSupabase(table string, data interface{}) ([]byte, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("erro no supabase (%d)", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("erro no supabase (%d): %s", resp.StatusCode, string(body))
 	}
 
 	// Retorna o corpo da resposta (útil para pegar o ID gerado)
 	var responseBody []interface{}
 	json.NewDecoder(resp.Body).Decode(&responseBody)
-	
+
 	if len(responseBody) > 0 {
 		return json.Marshal(responseBody[0])
 	}
 
 	return nil, nil
+}
+
+func FetchFromSupabase(table string, query string) ([]byte, error) {
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	supabaseKey := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
+	if supabaseURL == "" || supabaseKey == "" {
+		return nil, fmt.Errorf("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórios")
+	}
+
+	url := fmt.Sprintf("%s/rest/v1/%s", supabaseURL, table)
+	if strings.TrimSpace(query) != "" {
+		url += "?" + query
+	}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+supabaseKey)
+	req.Header.Set("apikey", supabaseKey)
+	req.Header.Set("Accept", "application/json")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("erro no supabase (%d): %s", resp.StatusCode, string(body))
+	}
+
+	return body, nil
 }

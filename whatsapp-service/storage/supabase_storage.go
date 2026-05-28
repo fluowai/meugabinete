@@ -21,10 +21,10 @@ func UploadToSupabase(fileContent []byte, fileName string, contentType string) (
 
 	// Estrutura de pasta: whatsapp/tipo/ano/mes/dia_timestamp_arquivo
 	now := time.Now()
-	remotePath := fmt.Sprintf("whatsapp/%d/%02d/%d_%s", 
+	remotePath := fmt.Sprintf("whatsapp/%d/%02d/%d_%s",
 		now.Year(), now.Month(), now.Unix(), fileName)
 
-	url := fmt.Sprintf("%s/storage/v1/object/meugabinete/%s", supabaseURL, remotePath)
+	url := fmt.Sprintf("%s/storage/v1/object/%s/%s", supabaseURL, bucketName, remotePath)
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(fileContent))
 	if err != nil {
@@ -35,14 +35,14 @@ func UploadToSupabase(fileContent []byte, fileName string, contentType string) (
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("x-upsert", "true")
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != 200 && resp.StatusCode != 201 {
 		body, _ := io.ReadAll(resp.Body)
 		return "", fmt.Errorf("erro no upload (status %d): %s", resp.StatusCode, string(body))
 	}

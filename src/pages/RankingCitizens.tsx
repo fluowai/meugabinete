@@ -1,11 +1,19 @@
 import { motion } from 'motion/react';
 import { Award, TrendingUp, User, MessageSquare } from 'lucide-react';
-import { mockData } from '../hooks/mockApi';
+import { useCitizens } from '../hooks/useApi';
 import { cn } from '../lib/utils';
 
 export default function RankingCitizens() {
-  // Calculate rankings based on score
-  const citizenStats = [...mockData.citizens].sort((a, b) => (b.score || 0) - (a.score || 0));
+  const { data: citizens, loading } = useCitizens(1, 1000);
+  const citizenStats = [...citizens].sort((a, b) => (b.score || 0) - (a.score || 0));
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -7,3 +7,5 @@ coverage/
 .env*
 !.env.example
 !.env.production.example
+*.exe
+whatsapp-service/*.db

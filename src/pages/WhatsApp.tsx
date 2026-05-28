@@ -1,346 +1,698 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Plus, 
-  Search, 
-  MessageSquare, 
-  Shield, 
-  RefreshCcw, 
-  Trash2, 
-  Smartphone, 
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Bot,
+  FileText,
+  Globe2,
+  ImageIcon,
+  MessageSquare,
+  Music,
+  Paperclip,
   QrCode,
-  CheckCircle,
-  Clock,
-  Settings,
-  Zap,
-  Cpu
+  RefreshCcw,
+  Search,
+  Smartphone,
+  Users,
+  Wifi,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 
-type Tab = 'conexoes' | 'mensagens' | 'campanhas';
+type ChatType = 'direct' | 'group';
+type WhatsAppTab = ChatType | 'messages' | 'connections';
 
-interface Instance {
+interface WhatsAppChat {
   id: string;
+  chat_jid: string;
+  chat_type: ChatType;
+  display_name: string;
+  normalized_phone?: string;
+  country_code?: string;
+  profile_picture_url?: string;
+  participant_count?: number;
+  group_name?: string;
+  last_message?: string;
+  last_message_at?: string;
+  unread_count?: number;
+}
+
+interface WhatsAppMessage {
+  id: string;
+  message_id: string;
+  chat_jid: string;
+  sender_push_name?: string;
+  sender_phone?: string;
+  sender_country_code?: string;
+  sender_profile_picture_url?: string;
+  sender_display_name?: string;
+  is_group: boolean;
+  group_name?: string;
+  message_type: string;
+  text_content?: string;
+  media_url?: string;
+  media_mime_type?: string;
+  media_filename?: string;
+  mentioned_phones?: string[];
+  received_at?: string;
+  created_request_id?: string;
+}
+
+interface WhatsAppParticipant {
+  id: string;
+  participant_jid: string;
+  normalized_phone: string;
+  country_code?: string;
+  push_name?: string;
+  display_name: string;
+  profile_picture_url?: string;
+  is_admin?: boolean;
+  is_super_admin?: boolean;
+  last_seen_at?: string;
+}
+
+interface WhatsAppConnection {
+  id?: string;
+  instance_key: string;
   name: string;
-  phone: string;
-  status: 'connected' | 'disconnected' | 'connecting';
-  qrCode?: string;
-  uptime?: string;
+  provider?: string;
+  status: string;
+  connected?: boolean;
+  jid?: string;
+  phone?: string;
+  push_name?: string;
+  profile_picture_url?: string;
+  last_seen_at?: string;
+  last_connected_at?: string;
+}
+
+const getBaseUrl = () => {
+  let baseUrl = import.meta.env.VITE_WHATSAPP_SERVICE_URL || 'http://localhost:3001';
+  if (baseUrl && !baseUrl.startsWith('http')) {
+    baseUrl = `https://${baseUrl}`;
+  }
+  return baseUrl;
+};
+
+async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const response = await fetch(`${getBaseUrl()}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session?.access_token}`,
+      ...(options?.headers || {}),
+    },
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || `Erro HTTP ${response.status}`);
+  }
+  return response.json();
+}
+
+const mediaIcon = (type: string) => {
+  if (type === 'image' || type === 'sticker') return ImageIcon;
+  if (type === 'audio') return Music;
+  if (type === 'pdf' || type === 'document') return FileText;
+  return Paperclip;
+};
+
+const formatPhone = (phone?: string) => {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  if (digits.startsWith('55') && digits.length === 13) {
+    return `+55 (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9)}`;
+  }
+  if (digits.startsWith('55') && digits.length === 12) {
+    return `+55 (${digits.slice(2, 4)}) ${digits.slice(4, 8)}-${digits.slice(8)}`;
+  }
+  return `+${digits}`;
+};
+
+const formatDateTime = (date?: string) => {
+  if (!date) return '';
+  return new Date(date).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const tabConfig = [
+  { id: 'direct' as const, label: 'Conversas', icon: MessageSquare },
+  { id: 'group' as const, label: 'Grupos', icon: Users },
+  { id: 'messages' as const, label: 'Mensagens', icon: FileText },
+  { id: 'connections' as const, label: 'Conexoes', icon: Wifi },
+];
+
+function Avatar({
+  url,
+  type,
+  label,
+  size = 'md',
+}: {
+  url?: string;
+  type: 'direct' | 'group';
+  label: string;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const Icon = type === 'group' ? Users : MessageSquare;
+  const dimensions = size === 'sm' ? 'h-8 w-8' : size === 'lg' ? 'h-12 w-12' : 'h-10 w-10';
+  return (
+    <div
+      className={cn(
+        dimensions,
+        'flex shrink-0 items-center justify-center overflow-hidden rounded-full',
+        type === 'group' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700',
+      )}
+      title={label}
+    >
+      {url ? <img referrerPolicy="no-referrer" src={url} alt={label} className="h-full w-full object-cover" /> : <Icon className="h-5 w-5" />}
+    </div>
+  );
 }
 
 export default function WhatsAppHub() {
-  const [activeTab, setActiveTab] = useState<Tab>('conexoes');
-  const [instances, setInstances] = useState<Instance[]>([]);
-  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
-  const [selectedInstance, setSelectedInstance] = useState<Instance | null>(null);
-  const [qrCode, setQrCode] = useState<string>('');
-  const [loadingQr, setLoadingQr] = useState(false);
-  const [newInstanceName, setNewInstanceName] = useState('');
-  const [showNameInput, setShowNameInput] = useState(false);
+  const [activeTab, setActiveTab] = useState<WhatsAppTab>('direct');
+  const [search, setSearch] = useState('');
+  const [chats, setChats] = useState<WhatsAppChat[]>([]);
+  const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
+  const [allMessages, setAllMessages] = useState<WhatsAppMessage[]>([]);
+  const [participants, setParticipants] = useState<WhatsAppParticipant[]>([]);
+  const [connections, setConnections] = useState<WhatsAppConnection[]>([]);
+  const [selectedChat, setSelectedChat] = useState<WhatsAppChat | null>(null);
+  const [qrCode, setQrCode] = useState('');
+  const [loadingChats, setLoadingChats] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [loadingConnections, setLoadingConnections] = useState(false);
+  const [loadingParticipants, setLoadingParticipants] = useState(false);
+  const [creatingRequestId, setCreatingRequestId] = useState<string | null>(null);
+  const [syncingGroups, setSyncingGroups] = useState(false);
+  const [syncingParticipants, setSyncingParticipants] = useState(false);
+  const [error, setError] = useState('');
 
-  const getBaseUrl = () => {
-    let baseUrl = import.meta.env.VITE_WHATSAPP_SERVICE_URL || 'http://localhost:3001';
-    if (baseUrl && !baseUrl.startsWith('http')) {
-      baseUrl = `https://${baseUrl}`;
-    }
-    return baseUrl;
-  };
+  const isChatTab = activeTab === 'direct' || activeTab === 'group';
 
-  const fetchQrCode = async () => {
-    setLoadingQr(true);
+  const fetchChats = useCallback(async (type: ChatType) => {
+    setLoadingChats(true);
+    setError('');
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const baseUrl = getBaseUrl();
-      const response = await fetch(`${baseUrl}/api/qr`, {
-        method: 'GET',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
-        }
+      const data = await apiFetch<WhatsAppChat[]>(`/api/whatsapp/chats?type=${type}`);
+      setChats(data);
+      setSelectedChat((current) => {
+        if (current && data.some((chat) => chat.id === current.id)) return current;
+        return data[0] || null;
       });
-      if (response.ok) {
-        const data = await response.json();
-        setQrCode(data.qr || '');
-      } else if (response.status === 401) {
-        console.error('Não autorizado: verifique o token JWT.');
-      }
-    } catch (error) {
-      console.error('Erro ao buscar QR Code:', error);
+    } catch {
+      setError('Nao foi possivel carregar as conversas do WhatsApp.');
     } finally {
-      setLoadingQr(false);
+      setLoadingChats(false);
+    }
+  }, []);
+
+  const fetchMessages = useCallback(async (chat: WhatsAppChat | null) => {
+    if (!chat) {
+      setMessages([]);
+      return;
+    }
+    setLoadingMessages(true);
+    setError('');
+    try {
+      const data = await apiFetch<WhatsAppMessage[]>(`/api/whatsapp/chats/${chat.id}/messages`);
+      setMessages(data);
+    } catch {
+      setError('Nao foi possivel carregar as mensagens.');
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, []);
+
+  const fetchAllMessages = useCallback(async () => {
+    setLoadingMessages(true);
+    setError('');
+    try {
+      const data = await apiFetch<WhatsAppMessage[]>('/api/whatsapp/messages?limit=300');
+      setAllMessages(data);
+    } catch {
+      setError('Nao foi possivel listar as mensagens.');
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, []);
+
+  const fetchParticipants = useCallback(async (chat: WhatsAppChat | null) => {
+    if (!chat || chat.chat_type !== 'group') {
+      setParticipants([]);
+      return;
+    }
+    setLoadingParticipants(true);
+    try {
+      const data = await apiFetch<WhatsAppParticipant[]>(`/api/whatsapp/groups/${chat.id}/participants`);
+      setParticipants(data);
+    } catch {
+      setParticipants([]);
+    } finally {
+      setLoadingParticipants(false);
+    }
+  }, []);
+
+  const fetchConnections = useCallback(async () => {
+    setLoadingConnections(true);
+    setError('');
+    try {
+      const data = await apiFetch<WhatsAppConnection[]>('/api/whatsapp/connections');
+      setConnections(data);
+    } catch {
+      setError('Nao foi possivel carregar as conexoes.');
+    } finally {
+      setLoadingConnections(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'direct' || activeTab === 'group') {
+      fetchChats(activeTab);
+    } else if (activeTab === 'messages') {
+      fetchAllMessages();
+    } else {
+      fetchConnections();
+    }
+  }, [activeTab, fetchAllMessages, fetchChats, fetchConnections]);
+
+  useEffect(() => {
+    fetchMessages(selectedChat);
+    fetchParticipants(selectedChat);
+  }, [selectedChat, fetchMessages, fetchParticipants]);
+
+  const filteredChats = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return chats;
+    return chats.filter((chat) => {
+      const text = `${chat.display_name} ${chat.normalized_phone || ''} ${chat.group_name || ''} ${chat.last_message || ''}`.toLowerCase();
+      return text.includes(needle);
+    });
+  }, [chats, search]);
+
+  const filteredMessages = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return allMessages;
+    return allMessages.filter((message) => {
+      const text = `${message.sender_display_name || ''} ${message.sender_push_name || ''} ${message.sender_phone || ''} ${message.group_name || ''} ${message.text_content || ''}`.toLowerCase();
+      return text.includes(needle);
+    });
+  }, [allMessages, search]);
+
+  const createRequest = async (message: WhatsAppMessage) => {
+    setCreatingRequestId(message.id);
+    setError('');
+    try {
+      await apiFetch(`/api/whatsapp/messages/${message.id}/create-request`, { method: 'POST' });
+      await Promise.all([fetchMessages(selectedChat), activeTab === 'messages' ? fetchAllMessages() : Promise.resolve()]);
+    } catch {
+      setError('Nao foi possivel criar a demanda a partir da mensagem.');
+    } finally {
+      setCreatingRequestId(null);
     }
   };
 
-  const openQr = (instance: Instance) => {
-    setSelectedInstance(instance);
-    setIsQrModalOpen(true);
-    setQrCode('');
-    fetchQrCode();
+  const refreshCurrent = () => {
+    if (activeTab === 'direct' || activeTab === 'group') fetchChats(activeTab);
+    if (activeTab === 'messages') fetchAllMessages();
+    if (activeTab === 'connections') fetchConnections();
   };
 
-  const openNewInstanceModal = () => {
-    setShowNameInput(true);
+  const loadQR = async (instanceKey: string) => {
+    setError('');
+    try {
+      const data = await apiFetch<{ qr: string }>(`/api/whatsapp/connections/${instanceKey}/qr`);
+      setQrCode(data.qr || '');
+    } catch {
+      setError('Nao foi possivel carregar o QR Code.');
+    }
   };
 
-  const startNewInstance = () => {
-    const newInstance: Instance = {
-      id: Date.now().toString(),
-      name: newInstanceName || `Nova Instância ${instances.length + 1}`,
-      phone: 'Aguardando conexão...',
-      status: 'disconnected'
-    };
-    setShowNameInput(false);
-    setInstances(prev => [...prev, newInstance]);
-    openQr(newInstance);
+  const syncGroups = async () => {
+    setSyncingGroups(true);
+    setError('');
+    try {
+      await apiFetch('/api/whatsapp/connections/default/sync-groups', { method: 'POST' });
+      await fetchConnections();
+    } catch {
+      setError('Nao foi possivel sincronizar os grupos.');
+    } finally {
+      setSyncingGroups(false);
+    }
+  };
+
+  const syncSelectedParticipants = async () => {
+    if (!selectedChat) return;
+    setSyncingParticipants(true);
+    setError('');
+    try {
+      await apiFetch(`/api/whatsapp/groups/${selectedChat.id}/sync-participants`, { method: 'POST' });
+      await fetchParticipants(selectedChat);
+    } catch {
+      setError('Nao foi possivel sincronizar os membros do grupo.');
+    } finally {
+      setSyncingParticipants(false);
+    }
+  };
+
+  const renderMessage = (message: WhatsAppMessage) => {
+    const Icon = mediaIcon(message.message_type);
+    const sender = message.sender_display_name || message.sender_push_name || formatPhone(message.sender_phone) || 'Contato';
+    return (
+      <div key={message.id} className="flex gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <Avatar url={message.sender_profile_picture_url} type={message.is_group ? 'group' : 'direct'} label={sender} size="sm" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-semibold text-slate-900">{sender}</span>
+            {message.sender_phone && <span className="text-xs font-medium text-slate-500">{formatPhone(message.sender_phone)}</span>}
+            {message.sender_country_code && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                <Globe2 className="h-3 w-3" />
+                +{message.sender_country_code}
+              </span>
+            )}
+            {message.group_name && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">{message.group_name}</span>}
+          </div>
+          {message.text_content && <p className="mt-2 whitespace-pre-wrap text-sm text-slate-800">{message.text_content}</p>}
+          {message.media_url && (
+            <a
+              href={message.media_url}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex max-w-full items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            >
+              <Icon className="h-4 w-4 text-blue-600" />
+              <span className="truncate">{message.media_filename || message.message_type}</span>
+            </a>
+          )}
+          {message.mentioned_phones && message.mentioned_phones.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1">
+              {message.mentioned_phones.map((phone) => (
+                <span key={phone} className="rounded bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">
+                  @{formatPhone(phone)}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <span className="text-xs text-slate-400">{formatDateTime(message.received_at)}</span>
+            <button
+              onClick={() => createRequest(message)}
+              disabled={!!message.created_request_id || creatingRequestId === message.id}
+              className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-500"
+            >
+              {message.created_request_id ? 'Demanda criada' : creatingRequestId === message.id ? 'Criando...' : 'Criar demanda'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="flex h-[calc(100vh-8rem)] flex-col gap-4">
+      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Hub do WhatsApp</h1>
-          <p className="text-gray-500 mt-1">Gerencie conexões, automação e triagem por IA.</p>
+          <h1 className="text-2xl font-bold text-slate-900">Atendimento WhatsApp</h1>
+          <p className="mt-1 text-slate-500">Mensagens, grupos, membros e instancias whatsmeow.</p>
         </div>
-        <div className="flex gap-2">
-          <button className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-bold hover:bg-purple-700 shadow-lg shadow-purple-200 transition-all active:scale-95">
-            <Zap className="w-4 h-4" />
-            Configurar IA
-          </button>
-          <button 
-            onClick={openNewInstanceModal}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            Nova Instância
-          </button>
-        </div>
+        <button
+          onClick={refreshCurrent}
+          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+        >
+          <RefreshCcw className={cn('h-4 w-4', (loadingChats || loadingMessages || loadingConnections) && 'animate-spin')} />
+          Atualizar
+        </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-gray-100 rounded-2xl w-fit">
-        {[
-          { id: 'conexoes', label: 'Conexões', icon: Smartphone },
-          { id: 'mensagens', label: 'Mensagens/Demandas', icon: MessageSquare },
-          { id: 'campanhas', label: 'Campanhas de Envio', icon: Settings }
-        ].map(tab => (
+      <div className="flex w-fit flex-wrap gap-1 rounded-xl bg-slate-200/70 p-1">
+        {tabConfig.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as Tab)}
+            onClick={() => {
+              setActiveTab(tab.id);
+              setSelectedChat(null);
+              setMessages([]);
+              setQrCode('');
+              setSearch('');
+            }}
             className={cn(
-              "flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all",
-              activeTab === tab.id 
-                ? "bg-white text-blue-600 shadow-sm" 
-                : "text-gray-500 hover:text-gray-700"
+              'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-all',
+              activeTab === tab.id ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800',
             )}
           >
-            <tab.icon className="w-4 h-4" />
+            <tab.icon className="h-4 w-4" />
             {tab.label}
           </button>
         ))}
       </div>
 
-      <AnimatePresence mode="wait">
-        {activeTab === 'conexoes' && (
-          <motion.div
-            key="conexoes"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
-            {instances.map(instance => (
-              <div key={instance.id} className="bg-white rounded-3xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
-                <div className="flex items-start justify-between mb-6">
-                  <div className={cn(
-                    "w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg",
-                    instance.status === 'connected' ? "bg-green-100 text-green-600 shadow-green-100" : "bg-gray-100 text-gray-400 shadow-gray-100"
-                  )}>
-                    <Smartphone className="w-6 h-6" />
-                  </div>
-                  <div className={cn(
-                    "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                    instance.status === 'connected' ? "bg-green-50 text-green-700 border border-green-100" : "bg-red-50 text-red-700 border border-red-100"
-                  )}>
-                    {instance.status === 'connected' ? 'Conectado' : 'Desconectado'}
-                  </div>
-                </div>
+      {error && <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
-                <div className="space-y-1">
-                  <h3 className="text-lg font-black text-gray-900">{instance.name}</h3>
-                  <p className="text-sm font-medium text-gray-500">{instance.phone}</p>
-                </div>
-
-                <div className="mt-6 pt-6 border-t border-gray-100 flex items-center justify-between">
-                  {instance.status === 'connected' ? (
-                    <div className="flex flex-col">
-                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Tempo de Atividade</span>
-                      <span className="text-sm font-bold text-gray-700">{instance.uptime}</span>
-                    </div>
-                  ) : (
-                    <button 
-                      onClick={() => openQr(instance)}
-                      className="flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700"
-                    >
-                      <QrCode className="w-4 h-4" />
-                      Gerar QR Code
-                    </button>
-                  )}
-                  <div className="flex gap-2">
-                    <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
-                      <RefreshCcw className="w-4 h-4" />
-                    </button>
-                    <button className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </motion.div>
-        )}
-
-        {activeTab === 'mensagens' && (
-          <motion.div
-            key="mensagens"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-3xl border border-gray-200 overflow-hidden shadow-sm"
-          >
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-              <div className="relative w-80">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      {isChatTab && (
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[360px_1fr]">
+          <aside className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div className="border-b border-slate-100 p-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
-                  type="text"
-                  placeholder="Buscar mensagens..."
-                  className="w-full h-10 pl-10 pr-4 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder={activeTab === 'direct' ? 'Buscar por pushname ou numero...' : 'Buscar grupo...'}
+                  className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
               </div>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Escuta em tempo real ativa</span>
-                </div>
-              </div>
             </div>
-            
-            <div className="p-20 text-center">
-              <div className="w-20 h-20 bg-blue-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-blue-600">
-                <MessageSquare className="w-10 h-10" />
-              </div>
-              <h3 className="text-xl font-black text-gray-900 mb-2">Sem mensagens no momento</h3>
-              <p className="text-gray-500 max-w-sm mx-auto">Conecte uma instância e as demandas do WhatsApp começarão a aparecer aqui automaticamente após triagem por IA.</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* Modal Nome da Instância */}
-      <AnimatePresence>
-        {showNameInput && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-[40px] shadow-2xl w-full max-w-md overflow-hidden p-10"
-            >
-              <div className="flex flex-col items-center text-center">
-                <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-6">
-                  <Plus className="w-8 h-8 text-blue-600" />
-                </div>
-                <h2 className="text-2xl font-black text-gray-900 mb-2">Nova Conexão</h2>
-                <p className="text-gray-500 text-sm mb-8">Dê um nome para esta instância do WhatsApp (ex: Atendimento Saúde).</p>
-                
-                <input
-                  type="text"
-                  placeholder="Nome da Instância"
-                  value={newInstanceName}
-                  onChange={(e) => setNewInstanceName(e.target.value)}
-                  className="w-full h-14 px-6 bg-gray-50 border-2 border-gray-100 rounded-2xl text-lg font-bold focus:outline-none focus:border-blue-500 transition-all mb-6"
-                />
-
-                <div className="flex gap-3 w-full">
-                  <button 
-                    onClick={() => setShowNameInput(false)}
-                    className="flex-1 h-14 bg-gray-100 text-gray-500 text-sm font-black uppercase tracking-widest rounded-2xl"
-                  >
-                    Cancelar
-                  </button>
-                  <button 
-                    onClick={startNewInstance}
-                    className="flex-1 h-14 bg-blue-600 text-white text-sm font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-blue-200"
-                  >
-                    Continuar
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Modal QR Code */}
-      <AnimatePresence>
-        {isQrModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-[40px] shadow-2xl w-full max-w-md overflow-hidden"
-            >
-              <div className="p-10 flex flex-col items-center text-center">
-                <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-200 mb-6">
-                  <Smartphone className="w-8 h-8 text-white" />
-                </div>
-                <h2 className="text-2xl font-black text-gray-900 mb-2">Conectar WhatsApp</h2>
-                <p className="text-gray-500 text-sm mb-8">Escaneie o código abaixo com o seu WhatsApp para ativar a instância <strong>{selectedInstance?.name}</strong>.</p>
-                
-                <div className="relative p-4 bg-white border-4 border-gray-50 rounded-3xl shadow-inner mb-8">
-                  <div className="w-64 h-64 bg-gray-100 flex items-center justify-center rounded-2xl overflow-hidden">
-                    {qrCode ? (
-                      <img 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrCode)}`} 
-                        alt="WhatsApp QR Code"
-                        className="w-full h-full"
-                      />
-                    ) : (
-                      <QrCode className="w-32 h-32 text-gray-300" />
-                    )}
-                  </div>
-                  {(loadingQr || !qrCode) && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-2xl backdrop-blur-sm">
-                      <div className="flex flex-col items-center gap-4">
-                        <RefreshCcw className="w-8 h-8 text-blue-600 animate-spin" />
-                        <span className="text-xs font-bold text-gray-600 uppercase tracking-widest">
-                          {loadingQr ? 'Buscando QR...' : 'Aguardando Backend...'}
-                        </span>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {loadingChats && <div className="p-8 text-center text-sm text-slate-500">Carregando...</div>}
+              {!loadingChats && filteredChats.length === 0 && (
+                <div className="p-8 text-center text-sm text-slate-500">Nenhuma {activeTab === 'direct' ? 'conversa' : 'grupo'} encontrada.</div>
+              )}
+              {filteredChats.map((chat) => (
+                <button
+                  key={chat.id}
+                  onClick={() => setSelectedChat(chat)}
+                  className={cn('w-full border-b border-slate-100 p-4 text-left transition-colors hover:bg-slate-50', selectedChat?.id === chat.id && 'bg-blue-50')}
+                >
+                  <div className="flex items-start gap-3">
+                    <Avatar url={chat.profile_picture_url} type={chat.chat_type} label={chat.display_name} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex justify-between gap-2">
+                        <p className="truncate font-bold text-slate-900">{chat.display_name}</p>
+                        {chat.last_message_at && <span className="shrink-0 text-[11px] text-slate-400">{formatDateTime(chat.last_message_at)}</span>}
                       </div>
+                      {chat.normalized_phone && <p className="text-xs text-slate-500">{formatPhone(chat.normalized_phone)}</p>}
+                      {chat.chat_type === 'group' && (
+                        <p className="text-xs text-slate-500">{chat.participant_count || 0} membros</p>
+                      )}
+                      <p className="mt-1 truncate text-sm text-slate-500">{chat.last_message || 'Sem mensagens'}</p>
                     </div>
-                  )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </aside>
+
+          <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+            {selectedChat ? (
+              <>
+                <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar url={selectedChat.profile_picture_url} type={selectedChat.chat_type} label={selectedChat.display_name} size="lg" />
+                    <div className="min-w-0">
+                      <h2 className="truncate font-bold text-slate-900">{selectedChat.display_name}</h2>
+                      <p className="text-xs text-slate-500">
+                        {selectedChat.chat_type === 'group'
+                          ? `${selectedChat.participant_count || participants.length || 0} membros`
+                          : formatPhone(selectedChat.normalized_phone)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {selectedChat.chat_type === 'group' && (
+                      <button
+                        onClick={syncSelectedParticipants}
+                        disabled={syncingParticipants}
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                      >
+                        <RefreshCcw className={cn('h-3.5 w-3.5', syncingParticipants && 'animate-spin')} />
+                        Sincronizar membros
+                      </button>
+                    )}
+                    <div className="flex items-center gap-2 rounded-full bg-purple-50 px-3 py-1.5 text-xs font-bold text-purple-700">
+                      <Bot className="h-3.5 w-3.5" />
+                      Agentes ativos
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex gap-3 w-full">
-                  <button 
-                    onClick={fetchQrCode}
-                    className="flex-1 h-14 bg-blue-50 text-blue-600 text-sm font-black uppercase tracking-widest rounded-2xl hover:bg-blue-100 transition-all flex items-center justify-center gap-2"
-                  >
-                    <RefreshCcw className="w-4 h-4" />
-                    Atualizar
-                  </button>
-                  <button 
-                    onClick={() => setIsQrModalOpen(false)}
-                    className="flex-1 h-14 bg-gray-100 text-gray-500 text-sm font-black uppercase tracking-widest rounded-2xl hover:bg-gray-200 transition-all"
-                  >
-                    Fechar
-                  </button>
+                {selectedChat.chat_type === 'group' && (
+                  <div className="border-b border-slate-100 bg-slate-50 px-5 py-3">
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {loadingParticipants && <span className="text-xs text-slate-500">Carregando membros...</span>}
+                      {!loadingParticipants && participants.slice(0, 18).map((participant) => (
+                        <div key={participant.id} className="flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1">
+                          <Avatar url={participant.profile_picture_url} type="direct" label={participant.display_name} size="sm" />
+                          <div className="max-w-[150px]">
+                            <div className="truncate text-xs font-semibold text-slate-800">{participant.display_name}</div>
+                            <div className="truncate text-[11px] text-slate-500">{formatPhone(participant.normalized_phone)}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex-1 space-y-4 overflow-y-auto bg-slate-50 p-5">
+                  {loadingMessages && <div className="text-center text-sm text-slate-500">Carregando mensagens...</div>}
+                  {!loadingMessages && messages.length === 0 && <div className="pt-20 text-center text-sm text-slate-500">Nenhuma mensagem nesta conversa.</div>}
+                  {messages.map(renderMessage)}
                 </div>
+              </>
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                  {activeTab === 'group' ? <Users className="h-8 w-8" /> : <MessageSquare className="h-8 w-8" />}
+                </div>
+                <h2 className="text-lg font-bold text-slate-900">Selecione uma conversa</h2>
+                <p className="mt-1 max-w-sm text-sm text-slate-500">As mensagens capturadas pelo whatsmeow aparecem com pushname, numero tratado, pais, grupo e midias.</p>
               </div>
-            </motion.div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {activeTab === 'messages' && (
+        <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className="border-b border-slate-100 p-4">
+            <div className="relative max-w-xl">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Buscar por nome, numero, grupo ou texto..."
+                className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              />
+            </div>
           </div>
-        )}
-      </AnimatePresence>
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50 p-4">
+            {loadingMessages && <div className="p-8 text-center text-sm text-slate-500">Carregando mensagens...</div>}
+            {!loadingMessages && filteredMessages.length === 0 && <div className="p-8 text-center text-sm text-slate-500">Nenhuma mensagem encontrada.</div>}
+            {filteredMessages.map(renderMessage)}
+          </div>
+        </section>
+      )}
+
+      {activeTab === 'connections' && (
+        <section className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[1fr_420px]">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div>
+                <h2 className="font-bold text-slate-900">Instancias</h2>
+                <p className="text-xs text-slate-500">Status das conexoes whatsmeow.</p>
+              </div>
+              <button
+                onClick={syncGroups}
+                disabled={syncingGroups}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                <RefreshCcw className={cn('h-4 w-4', syncingGroups && 'animate-spin')} />
+                Sincronizar grupos
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px]">
+                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="px-5 py-3 font-semibold">Instancia</th>
+                    <th className="px-5 py-3 font-semibold">Status</th>
+                    <th className="px-5 py-3 font-semibold">Numero</th>
+                    <th className="px-5 py-3 font-semibold">Pushname</th>
+                    <th className="px-5 py-3 text-right font-semibold">Acoes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loadingConnections && (
+                    <tr>
+                      <td colSpan={5} className="px-5 py-10 text-center text-sm text-slate-500">Carregando conexoes...</td>
+                    </tr>
+                  )}
+                  {!loadingConnections && connections.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-5 py-10 text-center text-sm text-slate-500">Nenhuma instancia encontrada.</td>
+                    </tr>
+                  )}
+                  {connections.map((connection) => (
+                    <tr key={connection.instance_key} className="border-t border-slate-100">
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                            <Smartphone className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-slate-900">{connection.name}</div>
+                            <div className="text-xs text-slate-500">{connection.provider || 'whatsmeow'}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={cn(
+                            'rounded-full px-2.5 py-1 text-xs font-bold',
+                            connection.connected ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700',
+                          )}
+                        >
+                          {connection.connected ? 'Conectada' : connection.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-sm text-slate-600">{formatPhone(connection.phone) || '-'}</td>
+                      <td className="px-5 py-4 text-sm text-slate-600">{connection.push_name || '-'}</td>
+                      <td className="px-5 py-4 text-right">
+                        <button
+                          onClick={() => loadQR(connection.instance_key)}
+                          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                        >
+                          <QrCode className="h-4 w-4" />
+                          QR
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <aside className="flex min-h-[320px] flex-col rounded-xl border border-slate-200 bg-white">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className="font-bold text-slate-900">QR da instancia</h2>
+              <p className="text-xs text-slate-500">Token atual retornado pelo whatsmeow.</p>
+            </div>
+            <div className="flex flex-1 flex-col gap-3 p-5">
+              <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4">
+                {qrCode ? (
+                  <textarea
+                    readOnly
+                    value={qrCode}
+                    className="h-full min-h-[220px] w-full resize-none rounded-lg border border-slate-200 bg-white p-3 font-mono text-xs text-slate-700 focus:outline-none"
+                  />
+                ) : (
+                  <div className="text-center text-sm text-slate-500">
+                    <QrCode className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+                    QR indisponivel ou instancia ja conectada.
+                  </div>
+                )}
+              </div>
+            </div>
+          </aside>
+        </section>
+      )}
     </div>
   );
 }

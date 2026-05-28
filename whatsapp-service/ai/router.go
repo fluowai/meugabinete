@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
+	"strings"
+	"time"
 )
 
 type AIProvider string
@@ -59,7 +62,15 @@ func NewAIRouter() *AIRouter {
 	return router
 }
 
+type LLMProviderRecord struct {
+	Provider     string `json:"provider"`
+	ApiKey       string `json:"api_key"`
+	DefaultModel string `json:"default_model"`
+	IsActive     bool   `json:"is_active"`
+}
+
 func (r *AIRouter) registerProviders() {
+	// First load from environment variables as default
 	if groqKey := os.Getenv("GROQ_API_KEY"); groqKey != "" && groqKey != "SUA_GROQ_KEY_AQUI" {
 		r.providers[ProviderGroq] = NewGroqProvider(groqKey)
 	}
@@ -68,6 +79,46 @@ func (r *AIRouter) registerProviders() {
 	}
 	if openaiKey := os.Getenv("OPENAI_API_KEY"); openaiKey != "" && openaiKey != "SUA_OPENAI_KEY_AQUI" {
 		r.providers[ProviderOpenAI] = NewOpenAIProvider(openaiKey)
+	}
+
+	// Dynamic override from Supabase table "llm_providers"
+	// Import is handled dynamically via lazy initialization or direct import
+	// To prevent import cycles, we can invoke FetchFromSupabase via a helper
+	// or perform a standard HTTP request to Supabase rest interface
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	supabaseKey := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
+	if supabaseURL != "" && supabaseKey != "" {
+		url := fmt.Sprintf("%s/rest/v1/llm_providers", supabaseURL)
+		req, err := http.NewRequest("GET", url, nil)
+		if err == nil {
+			req.Header.Set("Authorization", "Bearer "+supabaseKey)
+			req.Header.Set("apikey", supabaseKey)
+			req.Header.Set("Accept", "application/json")
+			
+			client := &http.Client{Timeout: 10 * time.Second}
+			resp, err := client.Do(req)
+			if err == nil && resp.StatusCode < 300 {
+				defer resp.Body.Close()
+				var records []LLMProviderRecord
+				if err := json.NewDecoder(resp.Body).Decode(&records); err == nil {
+					for _, rec := range records {
+						if rec.ApiKey != "" {
+							switch AIProvider(rec.Provider) {
+							case ProviderGroq:
+								r.providers[ProviderGroq] = NewGroqProvider(rec.ApiKey)
+							case ProviderGemini:
+								r.providers[ProviderGemini] = NewGeminiProvider(rec.ApiKey)
+							case ProviderOpenAI:
+								r.providers[ProviderOpenAI] = NewOpenAIProvider(rec.ApiKey)
+							}
+							if rec.IsActive {
+								r.active = AIProvider(rec.Provider)
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -101,11 +152,49 @@ func (r *AIRouter) ClassifyDemand(message string) (*ClassificationResult, error)
 	return result, nil
 }
 
+type AgentDocRecord struct {
+	Title   string `json:"title"`
+	Content string `json:"content"`
+}
+
 func (r *AIRouter) Chat(messages []ChatMessage, systemPrompt string) (string, error) {
 	provider, err := r.GetProvider(r.active)
 	if err != nil {
 		return "", err
 	}
+
+	// Dynamic RAG Injection
+	ragContext := ""
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	supabaseKey := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
+	if supabaseURL != "" && supabaseKey != "" {
+		url := fmt.Sprintf("%s/rest/v1/agent_documents?select=title,content", supabaseURL)
+		req, err := http.NewRequest("GET", url, nil)
+		if err == nil {
+			req.Header.Set("Authorization", "Bearer "+supabaseKey)
+			req.Header.Set("apikey", supabaseKey)
+			req.Header.Set("Accept", "application/json")
+			
+			client := &http.Client{Timeout: 8 * time.Second}
+			resp, err := client.Do(req)
+			if err == nil && resp.StatusCode < 300 {
+				defer resp.Body.Close()
+				var records []AgentDocRecord
+				if err := json.NewDecoder(resp.Body).Decode(&records); err == nil && len(records) > 0 {
+					var docsText []string
+					for _, rec := range records {
+						docsText = append(docsText, fmt.Sprintf("Documento de Estudo [%s]:\n%s", rec.Title, rec.Content))
+					}
+					ragContext = strings.Join(docsText, "\n\n")
+				}
+			}
+		}
+	}
+
+	if ragContext != "" {
+		systemPrompt = fmt.Sprintf("%s\n\nBase de Conhecimento RAG (Use estritamente as regras/manuais abaixo se relevantes para responder):\n%s", systemPrompt, ragContext)
+	}
+
 	return provider.Chat(context.Background(), messages, systemPrompt)
 }
 
