@@ -78,6 +78,10 @@ func ProcessMessage(client *whatsmeow.Client, v *events.Message) {
 		return
 	}
 
+	if v.Info.Chat.Server != types.DefaultUserServer && v.Info.Chat.Server != types.LegacyUserServer && v.Info.Chat.Server != types.GroupServer {
+		return
+	}
+
 	chatJID := v.Info.Chat.String()
 	isGroup := v.Info.IsGroup || v.Info.Chat.Server == types.GroupServer
 	senderInfo := resolveSenderInfo(client, v.Info, isGroup)
@@ -499,7 +503,7 @@ func upsertGroupParticipantsFromInfo(client *whatsmeow.Client, groupJID string, 
 		if includePictures {
 			photoURL = fetchProfilePicture(client, jid, info.JID.User+"_"+jid.User)
 		}
-		upsertGroupParticipant(groupJID, jid.String(), phone, InferCountryCode(phone), "", displayName, photoURL, participant.IsAdmin, participant.IsSuperAdmin, seenAt)
+		upsertGroupParticipant(groupJID, jid.String(), phone, InferCountryCode(phone), displayName, displayName, photoURL, participant.IsAdmin, participant.IsSuperAdmin, seenAt)
 		count++
 	}
 	return count
@@ -532,7 +536,7 @@ func SyncJoinedGroups(client *whatsmeow.Client) (int, int, error) {
 	participantCount := 0
 	now := time.Now()
 	for _, group := range groups {
-		if group == nil {
+		if group == nil || group.JID.Server != types.GroupServer {
 			continue
 		}
 		photoURL := fetchProfilePicture(client, group.JID, group.JID.User+"_group")

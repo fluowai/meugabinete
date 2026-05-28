@@ -11,11 +11,13 @@ import {
   MapPin,
   Tag,
   Bot,
-  User
+  User,
+  Loader2
 } from 'lucide-react';
 import { useRequests, useCitizens } from '../hooks/useApi';
 import type { Request } from '../types';
 import { cn } from '../lib/utils';
+import { supabase } from '../lib/supabase';
 
 type StatusTab = 'all' | 'open' | 'in-progress' | 'waiting' | 'resolved' | 'closed';
 
@@ -58,15 +60,63 @@ const priorityLabels: Record<string, string> = {
   urgent: 'Urgente',
 };
 
+interface CEPAddress {
+  cep: string;
+  address: string;
+  complement?: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+}
+
+const getBackendBaseUrl = () => {
+  let baseUrl = import.meta.env.VITE_WHATSAPP_SERVICE_URL || 'http://localhost:3001';
+  if (baseUrl && !baseUrl.startsWith('http')) {
+    baseUrl = `https://${baseUrl}`;
+  }
+  return baseUrl;
+};
+
+async function fetchFreeCEP(cep: string): Promise<CEPAddress> {
+  const cleanCep = cep.replace(/\D/g, '');
+  const { data: { session } } = await supabase.auth.getSession();
+
+  try {
+    const response = await fetch(`${getBackendBaseUrl()}/api/cep/${cleanCep}`, {
+      headers: { Authorization: `Bearer ${session?.access_token}` },
+    });
+    if (response.ok) return response.json();
+  } catch {}
+
+  const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+  const data = await response.json();
+  if (!response.ok || data.erro) throw new Error('CEP nao encontrado.');
+  return {
+    cep: data.cep,
+    address: data.logradouro,
+    complement: data.complemento,
+    neighborhood: data.bairro,
+    city: data.localidade,
+    state: data.uf,
+  };
+}
+
 export default function Requests() {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<StatusTab>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchingCep, setSearchingCep] = useState(false);
   const protocolPreview = useMemo(() => `#${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`, []);
   const [formData, setFormData] = useState({
     requesterId: '',
     subject: '',
     neighborhood: '',
+    cep: '',
+    address: '',
+    addressNumber: '',
+    complement: '',
+    city: '',
+    state: '',
     priority: 'medium',
     description: '',
     title: ''
@@ -111,13 +161,53 @@ export default function Requests() {
     return c;
   }, [requests]);
 
+  const handleCepChange = async (cepValue: string) => {
+    const cleanCep = cepValue.replace(/\D/g, '');
+    let formatted = cleanCep;
+    if (cleanCep.length > 5) {
+      formatted = `${cleanCep.slice(0, 5)}-${cleanCep.slice(5, 8)}`;
+    }
+
+    setFormData(prev => ({ ...prev, cep: formatted }));
+
+    if (cleanCep.length === 8) {
+      setSearchingCep(true);
+      try {
+        const data = await fetchFreeCEP(cleanCep);
+        setFormData(prev => ({
+          ...prev,
+          cep: data.cep || prev.cep,
+          address: data.address || prev.address,
+          complement: prev.complement || data.complement || '',
+          neighborhood: data.neighborhood || prev.neighborhood,
+          city: data.city || prev.city,
+          state: data.state || prev.state,
+        }));
+        setTimeout(() => {
+          const numInput = document.getElementById('requestAddressNumber');
+          if (numInput) numInput.focus();
+        }, 100);
+      } catch (err) {
+        console.error('Erro ao buscar CEP:', err);
+      } finally {
+        setSearchingCep(false);
+      }
+    }
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     const newRequest = {
       title: formData.title || formData.subject,
       description: formData.description,
       subject: formData.subject,
-      neighborhood: formData.neighborhood,
+      cep: formData.cep || null,
+      address: formData.address || null,
+      address_number: formData.addressNumber || null,
+      complement: formData.complement || null,
+      neighborhood: formData.neighborhood || null,
+      city: formData.city || null,
+      state: formData.state || null,
       category: 'request',
       priority: formData.priority,
       status: 'open',
@@ -127,7 +217,7 @@ export default function Requests() {
     try {
       await create(newRequest);
       setIsModalOpen(false);
-      setFormData({ requesterId: '', subject: '', neighborhood: '', priority: 'medium', description: '', title: '' });
+      setFormData({ requesterId: '', subject: '', neighborhood: '', cep: '', address: '', addressNumber: '', complement: '', city: '', state: '', priority: 'medium', description: '', title: '' });
     } catch (err) {
       console.error('Erro ao criar demanda:', err);
     }
@@ -389,16 +479,78 @@ export default function Requests() {
                   <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
                     <h3 className="text-sm font-black text-blue-900/40 uppercase tracking-widest mb-4">Localização da Ocorrência</h3>
                     <div className="space-y-4">
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="col-span-1">
+                          <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">CEP</label>
+                          <div className="relative">
+                            <input
+                              value={formData.cep}
+                              onChange={(e) => handleCepChange(e.target.value)}
+                              maxLength={9}
+                              className="w-full h-12 px-4 pr-10 bg-white border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
+                              placeholder="00000-000"
+                            />
+                            {searchingCep && (
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                              </div>
+                            )}
+                          </div>
+                          <span className="text-xs text-gray-400 mt-1 block">
+                            Busca automática ao digitar 8 números
+                          </span>
+                        </div>
+                      </div>
                       <div>
                         <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">Logradouro (Rua/Av)</label>
-                        <input type="text" placeholder="Nome da rua onde está o problema..." className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none" />
+                        <input
+                          value={formData.address}
+                          onChange={e => setFormData({...formData, address: e.target.value})}
+                          type="text" placeholder="Nome da rua onde está o problema..."
+                          className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
+                        />
                       </div>
                       <div className="grid grid-cols-3 gap-4">
                         <div className="col-span-1">
-                          <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">Nº Próximo</label>
-                          <input type="text" placeholder="123" className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none" />
+                          <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">Nº</label>
+                          <input
+                            id="requestAddressNumber"
+                            value={formData.addressNumber}
+                            onChange={e => setFormData({...formData, addressNumber: e.target.value})}
+                            type="text" placeholder="123"
+                            className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
+                          />
                         </div>
                         <div className="col-span-2">
+                          <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">Complemento</label>
+                          <input
+                            value={formData.complement}
+                            onChange={e => setFormData({...formData, complement: e.target.value})}
+                            type="text" placeholder="Ex: Apto 101, Bloco A"
+                            className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="col-span-1">
+                          <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">Cidade</label>
+                          <input
+                            value={formData.city}
+                            onChange={e => setFormData({...formData, city: e.target.value})}
+                            type="text" placeholder="Cidade"
+                            className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
+                          />
+                        </div>
+                        <div className="col-span-1">
+                          <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">UF</label>
+                          <input
+                            value={formData.state}
+                            onChange={e => setFormData({...formData, state: e.target.value.slice(0, 2)})}
+                            type="text" placeholder="UF" maxLength={2}
+                            className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-sm uppercase focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
+                          />
+                        </div>
+                        <div className="col-span-1">
                           <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase">Ponto de Referência</label>
                           <input type="text" placeholder="Ex: Próximo ao mercado" className="w-full h-12 px-4 bg-white border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none" />
                         </div>

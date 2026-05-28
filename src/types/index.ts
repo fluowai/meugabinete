@@ -172,6 +172,12 @@ export interface Request {
   description: string;
   subject?: string;
   neighborhood?: string;
+  cep?: string;
+  address?: string;
+  addressNumber?: string;
+  complement?: string;
+  city?: string;
+  state?: string;
   category: 'information' | 'complaint' | 'suggestion' | 'request' | 'compliment';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   status: 'open' | 'in-progress' | 'waiting' | 'resolved' | 'closed';
