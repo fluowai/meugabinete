@@ -2,6 +2,8 @@ name: Build and Push Docker Images
 
 on:
   push:
+    branches: [main, master, codex/professional-ui]
+  pull_request:
     branches: [main, master]
   workflow_dispatch:
 
@@ -9,9 +11,6 @@ env:
   REGISTRY: ghcr.io
   FRONTEND_IMAGE: ghcr.io/fluowai/meugabinete-frontend
   API_IMAGE: ghcr.io/fluowai/meugabinete-whatsapp-service
-  VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL || 'https://cjirkvgalpignnaxixzr.supabase.co' }}
-  VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqaXJrdmdhbHBpZ25uYXhpeHpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NjIzNzksImV4cCI6MjA5MzAzODM3OX0.MLVoApshNS_-0i56dnYXYEoP1_8WPEI5oknGbI6ijkg' }}
-  VITE_WHATSAPP_SERVICE_URL: ${{ vars.VITE_WHATSAPP_SERVICE_URL || 'https://woogabinete.consultio.com.br' }}
 
 jobs:
   build-frontend:
@@ -34,12 +33,12 @@ jobs:
         with:
           context: .
           file: Dockerfile.prod
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ env.FRONTEND_IMAGE }}:latest
           build-args: |
-            VITE_SUPABASE_URL=${{ env.VITE_SUPABASE_URL }}
-            VITE_SUPABASE_ANON_KEY=${{ env.VITE_SUPABASE_ANON_KEY }}
-            VITE_WHATSAPP_SERVICE_URL=${{ env.VITE_WHATSAPP_SERVICE_URL }}
+            VITE_SUPABASE_URL=https://cjirkvgalpignnaxixzr.supabase.co
+            VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqaXJrdmdhbHBpZ25uYXhpeHpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NjIzNzksImV4cCI6MjA5MzAzODM3OX0.MLVoApshNS_-0i56dnYXYEoP1_8WPEI5oknGbI6ijkg
+            VITE_WHATSAPP_SERVICE_URL=https://woogabinete.consultio.com.br
 
   build-api:
     runs-on: ubuntu-latest
@@ -61,5 +60,5 @@ jobs:
         with:
           context: ./whatsapp-service
           file: ./whatsapp-service/Dockerfile
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ env.API_IMAGE }}:latest
