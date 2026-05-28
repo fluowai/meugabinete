@@ -1,18 +1,18 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Edit2, 
-  Trash2, 
-  Eye,
-  Phone,
-  MapPin,
-  X,
+import {
   ChevronLeft,
   ChevronRight,
+  Edit2,
+  Eye,
+  Loader2,
+  MapPin,
+  Phone,
+  Plus,
+  Search,
+  Trash2,
   Users,
-  Loader2
+  X,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { Citizen } from '../types';
@@ -75,6 +75,20 @@ const statusConfig = {
   inactive: { label: 'Inativo', className: 'bg-gray-100 text-gray-600' },
 };
 
+const initialFormData = {
+  name: '',
+  phone: '',
+  cep: '',
+  address: '',
+  addressNumber: '',
+  complement: '',
+  city: '',
+  state: '',
+  neighborhood: '',
+  status: 'lead' as Citizen['status'],
+  notes: '',
+};
+
 export default function CitizenList() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -83,33 +97,34 @@ export default function CitizenList() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    cep: '',
-    address: '',
-    addressNumber: '',
-    complement: '',
-    neighborhood: '',
-    city: '',
-    state: '',
-    status: 'lead' as Citizen['status'],
-    notes: '',
-  });
+  const [formData, setFormData] = useState(initialFormData);
   const [selectedCitizen, setSelectedCitizen] = useState<Citizen | null>(null);
   const [editingCitizenId, setEditingCitizenId] = useState<string | null>(null);
   const [searchingCep, setSearchingCep] = useState(false);
 
-  const { 
-    data: citizens, 
-    loading, 
-    total, 
-    page: currentPage, 
-    totalPages, 
-    create, 
+  const {
+    data: citizens,
+    loading,
+    total,
+    page: currentPage,
+    totalPages,
+    create,
     update,
-    remove 
+    remove,
   } = useCitizens(page, 10, search);
+
+  const displayedCitizens = statusFilter
+    ? citizens.filter((citizen) => citizen.status === statusFilter)
+    : citizens;
+
+  const formatAddress = (citizen: Citizen) => {
+    const street = [citizen.address, citizen.addressNumber].filter(Boolean).join(', ');
+    const cityState = citizen.city && citizen.state ? `${citizen.city}/${citizen.state}` : citizen.city || citizen.state;
+    const area = [citizen.neighborhood, cityState].filter(Boolean).join(' - ');
+    const cep = citizen.cep ? `CEP ${citizen.cep}` : '';
+
+    return [street, citizen.complement, area, cep].filter(Boolean).join(' | ');
+  };
 
   useEffect(() => {
     setPage(1);
@@ -134,19 +149,7 @@ export default function CitizenList() {
   const openCreateModal = () => {
     setFormError('');
     setEditingCitizenId(null);
-    setFormData({
-      name: '',
-      phone: '',
-      cep: '',
-      address: '',
-      addressNumber: '',
-      complement: '',
-      neighborhood: '',
-      city: '',
-      state: '',
-      status: 'lead',
-      notes: '',
-    });
+    setFormData(initialFormData);
     setShowCreateModal(true);
   };
 
@@ -171,7 +174,6 @@ export default function CitizenList() {
 
   const closeCreateModal = () => {
     if (saving) return;
-    setShowCreateModal(false);
     setFormError('');
     setEditingCitizenId(null);
   };
@@ -182,7 +184,7 @@ export default function CitizenList() {
     if (cleanCep.length > 5) {
       formatted = `${cleanCep.slice(0, 5)}-${cleanCep.slice(5, 8)}`;
     }
-    
+
     setFormData(prev => ({ ...prev, cep: formatted }));
 
     if (cleanCep.length === 8) {
@@ -301,14 +303,14 @@ export default function CitizenList() {
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Nome</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden md:table-cell">Telefone</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden xl:table-cell">Cidade/UF</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden xl:table-cell">Endereco</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">Tags</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Ações</th>
               </tr>
             </thead>
             <tbody>
-              {citizens.length === 0 ? (
+              {displayedCitizens.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
@@ -319,7 +321,7 @@ export default function CitizenList() {
                   </td>
                 </tr>
               ) : (
-                citizens.map((citizen) => (
+                displayedCitizens.map((citizen) => (
                   <tr key={citizen.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-4">
                       <div className="flex flex-col">
@@ -332,7 +334,7 @@ export default function CitizenList() {
                     </td>
                     <td className="px-4 py-4 hidden xl:table-cell">
                       <span className="text-sm text-gray-500">
-                        {citizen.city && citizen.state ? `${citizen.city}/${citizen.state}` : '-'}
+                        {formatAddress(citizen) || '-'}
                       </span>
                     </td>
                     <td className="px-4 py-4">
@@ -421,7 +423,7 @@ export default function CitizenList() {
       )}
 
       {showCreateModal && (
-         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={closeCreateModal}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={closeCreateModal}>
           <form
             onSubmit={handleSaveCitizen}
             className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
@@ -482,10 +484,9 @@ export default function CitizenList() {
                 </div>
               </div>
 
-              {/* Seção de Endereço Residencial com Busca por CEP */}
               <div className="border-t border-gray-100 pt-4">
                 <h3 className="text-sm font-semibold text-gray-900 mb-3">Endereço Residencial</h3>
-                
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                   <div className="sm:col-span-1">
                     <label className="block text-sm font-medium text-gray-700 mb-2">CEP</label>
@@ -639,7 +640,7 @@ export default function CitizenList() {
                   <div className="flex flex-col">
                     <span className="text-gray-500 text-xs">Endereço</span>
                     <span className="text-gray-900">
-                      {selectedCitizen.city && selectedCitizen.state 
+                      {selectedCitizen.city && selectedCitizen.state
                         ? `${selectedCitizen.address || ''} ${selectedCitizen.addressNumber || ''} ${selectedCitizen.complement || ''} - ${selectedCitizen.neighborhood || ''}, ${selectedCitizen.city}/${selectedCitizen.state} ${selectedCitizen.cep || ''}`.trim()
                         : 'Endereço não informado'}
                     </span>
