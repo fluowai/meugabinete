@@ -142,43 +142,46 @@ const defaultCitizens: Citizen[] = [
 const defaultRequests: Request[] = [
   {
     id: 'r1',
-    citizenId: 'c1',
-    citizenName: 'Paulo Silva',
     title: 'Poda de Árvores na Av. Beira Mar',
     description: 'Árvores de grande porte obstruindo a sinalização de trânsito e a iluminação pública da avenida.',
-    status: 'open',
+    category: 'complaint',
     priority: 'high',
+    status: 'open',
     subject: 'Infraestrutura',
     neighborhood: 'Centro',
-    assignedTo: 'Secretaria de Obras',
+    requesterId: 'c1',
+    requesterName: 'Paulo Silva',
+    assignedToName: 'Secretaria de Obras',
     createdAt: new Date(Date.now() - 10 * 24 * 3600 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 10 * 24 * 3600 * 1000).toISOString()
   },
   {
     id: 'r2',
-    citizenId: 'c2',
-    citizenName: 'Ana Souza',
     title: 'Manutenção de Iluminação Pública',
     description: 'Poste de luz queimado há mais de duas semanas em frente ao condomínio Bocaiúva.',
-    status: 'in-progress',
+    category: 'complaint',
     priority: 'medium',
+    status: 'in-progress',
     subject: 'Iluminação',
     neighborhood: 'Centro',
-    assignedTo: 'Celesc',
+    requesterId: 'c2',
+    requesterName: 'Ana Souza',
+    assignedToName: 'Celesc',
     createdAt: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString()
   },
   {
     id: 'r3',
-    citizenId: 'c4',
-    citizenName: 'Mariana Costa',
     title: 'Reforma do Parque Infantil',
     description: 'Brinquedos danificados e falta de areia no parquinho da praça comunitária.',
-    status: 'resolved',
+    category: 'request',
     priority: 'medium',
+    status: 'resolved',
     subject: 'Lazer',
     neighborhood: 'Saco Grande',
-    assignedTo: 'Secretaria de Esporte e Lazer',
+    requesterId: 'c4',
+    requesterName: 'Mariana Costa',
+    assignedToName: 'Secretaria de Esporte e Lazer',
     createdAt: new Date(Date.now() - 25 * 24 * 3600 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString()
   }
@@ -212,36 +215,36 @@ const defaultCollaborators: Collaborator[] = [
 ];
 
 const defaultBasicRegisters: BasicRegister[] = [
-  { id: 'b1', name: 'Partido Liberal (PL)', category: 'partido', code: '22', status: 'active', createdAt: new Date().toISOString() },
-  { id: 'b2', name: 'Partido dos Trabalhadores (PT)', category: 'partido', code: '13', status: 'active', createdAt: new Date().toISOString() },
-  { id: 'b3', name: 'Vereador', category: 'cargo', status: 'active', createdAt: new Date().toISOString() },
-  { id: 'b4', name: 'Secretário Executivo', category: 'cargo', status: 'active', createdAt: new Date().toISOString() },
-  { id: 'b5', name: 'Florianópolis', category: 'municipio', code: 'FLN', status: 'active', createdAt: new Date().toISOString() }
+  { id: 'b1', name: 'Partido Liberal (PL)', category: 'party', code: '22', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'b2', name: 'Partido dos Trabalhadores (PT)', category: 'party', code: '13', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'b3', name: 'Vereador', category: 'position', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'b4', name: 'Secretário Executivo', category: 'position', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'b5', name: 'Florianópolis', category: 'county', code: 'FLN', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
 ];
 
 const defaultOrganizations: Organization[] = [
-  { id: 'o1', name: 'Associação de Moradores do Centro (AMOCENTRO)', cnpj: '12.345.678/0001-90', email: 'contato@amocentro.org', phone: '(48) 3222-1111', notes: 'Entidade muito ativa em prol da segurança local.', tags: ['Moradores', 'Centro'], createdAt: new Date().toISOString() }
+  { id: 'o1', name: 'Associação de Moradores do Centro (AMOCENTRO)', type: 'association', cnpj: '12.345.678/0001-90', email: 'contato@amocentro.org', phone: '(48) 3222-1111', notes: 'Entidade muito ativa em prol da segurança local.', tags: ['Moradores', 'Centro'], contacts: [], status: 'partner', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
 ];
 
 const defaultAppointments: Appointment[] = [
-  { id: 'ap1', title: 'Reunião de Alinhamento de Demandas', date: new Date(Date.now() + 1 * 24 * 3600 * 1000).toISOString().split('T')[0], time: '14:00', location: 'Gabinete Principal', description: 'Revisar os prazos de saneamento do Centro.', status: 'scheduled', createdAt: new Date().toISOString() },
-  { id: 'ap2', title: 'Visita à Associação Saco Grande', date: new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString().split('T')[0], time: '10:00', location: 'Saco Grande', description: 'Visitar praça comunitária e parquinho infantil.', status: 'scheduled', createdAt: new Date().toISOString() }
+  { id: 'ap1', title: 'Reunião de Alinhamento de Demandas', date: new Date(Date.now() + 1 * 24 * 3600 * 1000).toISOString().split('T')[0], time: '14:00', location: 'Gabinete Principal', description: 'Revisar os prazos de saneamento do Centro.', status: 'scheduled', type: 'meeting', priority: 'high', attendees: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'ap2', title: 'Visita à Associação Saco Grande', date: new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString().split('T')[0], time: '10:00', location: 'Saco Grande', description: 'Visitar praça comunitária e parquinho infantil.', status: 'scheduled', type: 'visit', priority: 'medium', attendees: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
 ];
 
 const defaultLandingPages: LandingPage[] = [
-  { id: 'l1', title: 'Apoio à Revitalização da Orla', slug: 'revitaliza-orla', status: 'published', description: 'Página de apoio para coleta de assinaturas e demandas do Centro.', views: 342, submissions: 114, createdAt: new Date().toISOString() }
+  { id: 'l1', name: 'Apoio à Revitalização da Orla', slug: 'revitaliza-orla', status: 'published', description: 'Página de apoio para coleta de assinaturas e demandas do Centro.', lgpdText: '', confirmationTitle: '', confirmationMessage: '', confirmationButtonText: '', confirmationButtonColor: '', showShareButton: false, shareButtonText: '', shareButtonColor: '', fields: [], views: 342, submissions: 114, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
 ];
 
 const defaultRelationships: Relationship[] = [
-  { id: 'rel1', citizenId: 'c1', citizenName: 'Paulo Silva', contactName: 'Ana Souza', description: 'Paulo intermediou a comunicação com a AMOCENTRO.', createdAt: new Date().toISOString() }
+  { id: 'rel1', type: 'political', citizenId: 'c1', relatedToId: 'c2', relatedToName: 'Ana Souza', notes: 'Paulo intermediou a comunicação com a AMOCENTRO.', strength: 'strong', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
 ];
 
 const defaultSignatures: Signature[] = [
-  { id: 's1', title: 'Emenda Parlamentar Obras 2026', key: 'EP-OBRAS-2026', documentUrl: 'http://example.com/doc.pdf', imageUrl: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?auto=format&fit=crop&q=80&w=150', status: 'active', createdAt: new Date().toISOString() }
+  { id: 's1', name: 'Emenda Parlamentar Obras 2026', role: 'Vereador', documentUrl: 'http://example.com/doc.pdf', imageUrl: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?auto=format&fit=crop&q=80&w=150', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
 ];
 
 const defaultMobilizations: Mobilization[] = [
-  { id: 'm1', name: 'Mutirão de Limpeza Praia', startDate: new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString(), status: 'active', description: 'Mobilizar moradores para limpeza comunitária.', createdAt: new Date().toISOString() }
+  { id: 'm1', name: 'Mutirão de Limpeza Praia', type: 'event', startDate: new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString(), status: 'active', description: 'Mobilizar moradores para limpeza comunitária.', tags: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
 ];
 
 // --- FIM DA BASE DE DADOS MOCK ---
