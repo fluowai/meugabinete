@@ -17,14 +17,12 @@ services:
         '  gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript image/svg+xml;'
         '  gzip_min_length 1000;'
         '  location / {'
-        '    try_files $uri $uri/ /index.html;'
-        '    add_header Cache-Control "public, max-age=3600";'
+        '    try_files $uri /index.html;'
         '  }'
         '  location /assets/ {'
         '    expires 1y;'
         '    add_header Cache-Control "public, immutable";'
         '  }'
-        '  error_page 404 =200 /index.html;'
         '}'
         > /etc/nginx/conf.d/default.conf
         && nginx -t
