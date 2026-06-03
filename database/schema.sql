@@ -74,6 +74,12 @@ CREATE TABLE IF NOT EXISTS requests (
     description TEXT NOT NULL,
     subject VARCHAR(100), -- Assunto classificado pela IA ou manual
     neighborhood VARCHAR(100), -- Bairro da demanda
+    cep VARCHAR(10),
+    address TEXT,
+    address_number VARCHAR(20),
+    complement VARCHAR(100),
+    city VARCHAR(100),
+    state VARCHAR(2),
     category VARCHAR(20) DEFAULT 'request', -- request, complaint, suggestion, information
     priority VARCHAR(20) DEFAULT 'medium', -- low, medium, high, urgent
     status VARCHAR(20) DEFAULT 'open', -- open, in-progress, resolved, cancelled

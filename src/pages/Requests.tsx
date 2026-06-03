@@ -197,21 +197,24 @@ export default function Requests() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    const selectedCitizen = citizens.find(c => c.id === formData.requesterId);
     const newRequest = {
-      title: formData.title || formData.subject,
-      description: formData.description,
-      subject: formData.subject,
-      cep: formData.cep || null,
-      address: formData.address || null,
-      address_number: formData.addressNumber || null,
-      complement: formData.complement || null,
-      neighborhood: formData.neighborhood || null,
-      city: formData.city || null,
-      state: formData.state || null,
+      title: formData.title.trim() || formData.subject.trim(),
+      description: formData.description.trim(),
+      subject: formData.subject.trim(),
+      cep: formData.cep.trim() || null,
+      address: formData.address.trim() || null,
+      address_number: formData.addressNumber.trim() || null,
+      complement: formData.complement.trim() || null,
+      neighborhood: formData.neighborhood.trim() || null,
+      city: formData.city.trim() || null,
+      state: formData.state.trim().toUpperCase() || null,
       category: 'request',
       priority: formData.priority,
       status: 'open',
       requester_id: formData.requesterId || null,
+      requester_name: selectedCitizen?.name || 'Cidadao nao informado',
+      requester_phone: selectedCitizen?.phone || null,
     };
 
     try {
