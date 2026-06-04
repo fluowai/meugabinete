@@ -17,7 +17,6 @@ import {
 import { useRequests, useCitizens } from '../hooks/useApi';
 import type { Request } from '../types';
 import { cn } from '../lib/utils';
-import { supabase } from '../lib/supabase';
 
 type StatusTab = 'all' | 'open' | 'in-progress' | 'waiting' | 'resolved' | 'closed';
 
@@ -69,24 +68,24 @@ interface CEPAddress {
   state: string;
 }
 
-const getBackendBaseUrl = () => {
-  let baseUrl = import.meta.env.VITE_WHATSAPP_SERVICE_URL || 'http://localhost:3001';
-  if (baseUrl && !baseUrl.startsWith('http')) {
-    baseUrl = `https://${baseUrl}`;
-  }
-  return baseUrl;
-};
-
 async function fetchFreeCEP(cep: string): Promise<CEPAddress> {
   const cleanCep = cep.replace(/\D/g, '');
-  const { data: { session } } = await supabase.auth.getSession();
 
   try {
-    const response = await fetch(`${getBackendBaseUrl()}/api/cep/${cleanCep}`, {
-      headers: { Authorization: `Bearer ${session?.access_token}` },
-    });
-    if (response.ok) return response.json();
-  } catch {}
+    const response = await fetch(`https://brasilapi.com.br/api/cep/v2/${cleanCep}`);
+    const data = await response.json();
+    if (response.ok && data.cep) {
+      return {
+        cep: data.cep,
+        address: data.street,
+        neighborhood: data.neighborhood,
+        city: data.city,
+        state: data.state,
+      };
+    }
+  } catch {
+    // ViaCEP below keeps the form usable if BrasilAPI is unavailable.
+  }
 
   const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
   const data = await response.json();

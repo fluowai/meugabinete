@@ -17,7 +17,6 @@ import {
 import { cn } from '../lib/utils';
 import type { Citizen } from '../types';
 import { useCitizens } from '../hooks/useApi';
-import { supabase } from '../lib/supabase';
 
 interface CEPAddress {
   cep: string;
@@ -28,29 +27,23 @@ interface CEPAddress {
   state: string;
 }
 
-const getBackendBaseUrl = () => {
-  let baseUrl = import.meta.env.VITE_WHATSAPP_SERVICE_URL || 'http://localhost:3001';
-  if (baseUrl && !baseUrl.startsWith('http')) {
-    baseUrl = `https://${baseUrl}`;
-  }
-  return baseUrl;
-};
-
 async function fetchFreeCEP(cep: string): Promise<CEPAddress> {
   const cleanCep = cep.replace(/\D/g, '');
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
 
   try {
-    const response = await fetch(`${getBackendBaseUrl()}/api/cep/${cleanCep}`, {
-      headers: { Authorization: `Bearer ${session?.access_token}` },
-    });
-    if (response.ok) {
-      return response.json();
+    const response = await fetch(`https://brasilapi.com.br/api/cep/v2/${cleanCep}`);
+    const data = await response.json();
+    if (response.ok && data.cep) {
+      return {
+        cep: data.cep,
+        address: data.street,
+        neighborhood: data.neighborhood,
+        city: data.city,
+        state: data.state,
+      };
     }
   } catch {
-    // The backend proxies free CEP providers; this fallback keeps local forms usable.
+    // ViaCEP below keeps the form usable if BrasilAPI is unavailable.
   }
 
   const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
