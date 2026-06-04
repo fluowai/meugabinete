@@ -25,15 +25,100 @@ export default function AppointmentList() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showModal, setShowModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
 
-  const { data: appointments, loading, refresh, create, update, remove } = useAppointments(1, 100);
+  const { data: appointments, loading, create, update, remove } = useAppointments(1, 100);
 
-  const filteredAppointments = searchTerm
-    ? appointments.filter(apt => 
-        apt.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        apt.location?.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    : appointments;
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    date: new Date().toISOString().split('T')[0],
+    time: '',
+    endTime: '',
+    location: '',
+    type: 'meeting' as Appointment['type'],
+    priority: 'medium' as Appointment['priority'],
+    status: 'scheduled' as Appointment['status'],
+  });
+
+  const openCreate = () => {
+    setFormData({
+      title: '',
+      description: '',
+      date: new Date().toISOString().split('T')[0],
+      time: '',
+      endTime: '',
+      location: '',
+      type: 'meeting',
+      priority: 'medium',
+      status: 'scheduled',
+    });
+    setEditingId(null);
+    setIsEditing(true);
+    setFormError('');
+    setShowModal(true);
+  };
+
+  const openEdit = (apt: Appointment) => {
+    setFormData({
+      title: apt.title,
+      description: apt.description || '',
+      date: apt.date,
+      time: apt.time || '',
+      endTime: apt.endTime || '',
+      location: apt.location || '',
+      type: apt.type,
+      priority: apt.priority,
+      status: apt.status,
+    });
+    setEditingId(apt.id);
+    setSelectedAppointment(apt);
+    setIsEditing(true);
+    setFormError('');
+    setShowModal(true);
+  };
+
+  const handleSave = async () => {
+    if (!formData.title) {
+      setFormError('Título é obrigatório.');
+      return;
+    }
+    setSaving(true);
+    setFormError('');
+    try {
+      const payload = {
+        ...formData,
+        description: formData.description || undefined,
+        time: formData.time || undefined,
+        endTime: formData.endTime || undefined,
+        location: formData.location || undefined,
+      };
+      if (editingId) {
+        await update(editingId, payload);
+      } else {
+        await create(payload);
+      }
+      setShowModal(false);
+      setIsEditing(false);
+      setEditingId(null);
+      setSelectedAppointment(null);
+    } catch {
+      setFormError('Erro ao salvar compromisso.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const filteredAppointments = appointments.filter(apt => {
+    const matchesSearch = !searchTerm ||
+      apt.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      apt.location?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = !statusFilter || apt.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -152,7 +237,7 @@ export default function AppointmentList() {
             Calendário
           </button>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
           <Plus className="w-4 h-4" />
           Novo Compromisso
         </button>
@@ -245,7 +330,7 @@ export default function AppointmentList() {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-lg">
+                        <button onClick={() => openEdit(apt)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-lg">
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
@@ -331,84 +416,158 @@ export default function AppointmentList() {
         </div>
       )}
 
-      {showModal && selectedAppointment && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { if (!isEditing) { setShowModal(false); } }}>
+          <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold">{selectedAppointment.title}</h2>
-              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+              <h2 className="text-lg font-semibold">
+                {isEditing ? (editingId ? 'Editar Compromisso' : 'Novo Compromisso') : selectedAppointment?.title}
+              </h2>
+              <button onClick={() => { setShowModal(false); setIsEditing(false); setEditingId(null); setSelectedAppointment(null); }} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-6 space-y-4">
-              <div className="flex items-center gap-3 text-sm">
-                <Calendar className="w-4 h-4 text-gray-400" />
-                <span>{new Date(selectedAppointment.date).toLocaleDateString('pt-BR')}</span>
-              </div>
-              {selectedAppointment.time && (
-                <div className="flex items-center gap-3 text-sm">
-                  <Clock className="w-4 h-4 text-gray-400" />
-                  <span>{selectedAppointment.time}</span>
-                </div>
-              )}
-              {selectedAppointment.location && (
-                <div className="flex items-center gap-3 text-sm">
-                  <MapPin className="w-4 h-4 text-gray-400" />
-                  <span>{selectedAppointment.location}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-3 text-sm">
-                <Users className="w-4 h-4 text-gray-400" />
-                <span>{selectedAppointment.attendees?.length || 0} participante(s)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">Tipo:</span>
-                <span className={cn("px-2 py-1 rounded-full text-xs font-medium", typeColors[selectedAppointment.type])}>
-                  {typeLabels[selectedAppointment.type]}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">Prioridade:</span>
-                <span className={cn("px-2 py-1 rounded-full text-xs font-medium", priorityColors[selectedAppointment.priority])}>
-                  {selectedAppointment.priority === 'low' ? 'Baixa' : selectedAppointment.priority === 'medium' ? 'Média' : 'Alta'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">Status:</span>
-                <span className={cn("px-2 py-1 rounded-full text-xs font-medium", statusBadgeColors[selectedAppointment.status])}>
-                  {statusOptions.find(s => s.value === selectedAppointment.status)?.label || selectedAppointment.status}
-                </span>
-              </div>
-              {selectedAppointment.description && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Descrição</h3>
-                  <p className="text-sm text-gray-500">{selectedAppointment.description}</p>
-                </div>
-              )}
-              {selectedAppointment.attendees && selectedAppointment.attendees.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Participantes</h3>
-                  <div className="space-y-2">
-                    {selectedAppointment.attendees.map((attendee, i) => (
-                      <div key={i} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
-                        <Users className="w-4 h-4 text-gray-400" />
-                        <div className="flex-1">
-                          <div className="text-sm font-medium">{attendee.name}</div>
-                          {attendee.email && <div className="text-xs text-gray-400">{attendee.email}</div>}
-                        </div>
-                        <span className={cn(
-                          "px-2 py-0.5 rounded-full text-xs",
-                          attendee.status === 'confirmed' && "bg-green-100 text-green-700",
-                          attendee.status === 'pending' && "bg-yellow-100 text-yellow-700",
-                          attendee.status === 'declined' && "bg-red-100 text-red-700"
-                        )}>
-                          {attendee.status === 'confirmed' ? 'Confirmado' : attendee.status === 'pending' ? 'Pendente' : 'Recusado'}
-                        </span>
-                      </div>
-                    ))}
+              {isEditing ? (
+                <>
+                  {formError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{formError}</div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Título *</label>
+                    <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
                   </div>
-                </div>
-              )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+                    <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={3} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
+                      <input type="date" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+                      <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as Appointment['type']})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                        <option value="meeting">Reunião</option>
+                        <option value="event">Evento</option>
+                        <option value="call">Ligação</option>
+                        <option value="visit">Visita</option>
+                        <option value="other">Outro</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Horário</label>
+                      <input type="time" value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Horário Fim</label>
+                      <input type="time" value={formData.endTime} onChange={e => setFormData({...formData, endTime: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Local</label>
+                    <input type="text" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Prioridade</label>
+                      <select value={formData.priority} onChange={e => setFormData({...formData, priority: e.target.value as Appointment['priority']})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                        <option value="low">Baixa</option>
+                        <option value="medium">Média</option>
+                        <option value="high">Alta</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                      <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as Appointment['status']})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                        {statusOptions.filter(s => s.value).map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-3 pt-4">
+                    <button onClick={() => { setShowModal(false); setIsEditing(false); setEditingId(null); setSelectedAppointment(null); }} className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
+                    <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                      {saving ? 'Salvando...' : editingId ? 'Salvar Alterações' : 'Criar Compromisso'}
+                    </button>
+                  </div>
+                </>
+              ) : selectedAppointment ? (
+                <>
+                  <div className="flex items-center gap-3 text-sm">
+                    <Calendar className="w-4 h-4 text-gray-400" />
+                    <span>{new Date(selectedAppointment.date).toLocaleDateString('pt-BR')}</span>
+                  </div>
+                  {selectedAppointment.time && (
+                    <div className="flex items-center gap-3 text-sm">
+                      <Clock className="w-4 h-4 text-gray-400" />
+                      <span>{selectedAppointment.time}</span>
+                    </div>
+                  )}
+                  {selectedAppointment.location && (
+                    <div className="flex items-center gap-3 text-sm">
+                      <MapPin className="w-4 h-4 text-gray-400" />
+                      <span>{selectedAppointment.location}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3 text-sm">
+                    <Users className="w-4 h-4 text-gray-400" />
+                    <span>{selectedAppointment.attendees?.length || 0} participante(s)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">Tipo:</span>
+                    <span className={cn("px-2 py-1 rounded-full text-xs font-medium", typeColors[selectedAppointment.type])}>
+                      {typeLabels[selectedAppointment.type]}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">Prioridade:</span>
+                    <span className={cn("px-2 py-1 rounded-full text-xs font-medium", priorityColors[selectedAppointment.priority])}>
+                      {selectedAppointment.priority === 'low' ? 'Baixa' : selectedAppointment.priority === 'medium' ? 'Média' : 'Alta'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">Status:</span>
+                    <span className={cn("px-2 py-1 rounded-full text-xs font-medium", statusBadgeColors[selectedAppointment.status])}>
+                      {statusOptions.find(s => s.value === selectedAppointment.status)?.label || selectedAppointment.status}
+                    </span>
+                  </div>
+                  {selectedAppointment.description && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-700 mb-2">Descrição</h3>
+                      <p className="text-sm text-gray-500">{selectedAppointment.description}</p>
+                    </div>
+                  )}
+                  {selectedAppointment.attendees && selectedAppointment.attendees.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-700 mb-2">Participantes</h3>
+                      <div className="space-y-2">
+                        {selectedAppointment.attendees.map((attendee, i) => (
+                          <div key={i} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+                            <Users className="w-4 h-4 text-gray-400" />
+                            <div className="flex-1">
+                              <div className="text-sm font-medium">{attendee.name}</div>
+                              {attendee.email && <div className="text-xs text-gray-400">{attendee.email}</div>}
+                            </div>
+                            <span className={cn(
+                              "px-2 py-0.5 rounded-full text-xs",
+                              attendee.status === 'confirmed' && "bg-green-100 text-green-700",
+                              attendee.status === 'pending' && "bg-yellow-100 text-yellow-700",
+                              attendee.status === 'declined' && "bg-red-100 text-red-700"
+                            )}>
+                              {attendee.status === 'confirmed' ? 'Confirmado' : attendee.status === 'pending' ? 'Pendente' : 'Recusado'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : null}
             </div>
           </div>
         </div>

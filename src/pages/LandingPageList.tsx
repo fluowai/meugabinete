@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'motion/react';
 import { 
-  Plus, Search, Eye, Edit2, Trash2, Copy, ExternalLink, X, 
-  ChevronLeft, ChevronRight, Filter, BarChart3, EyeOff, Eye as EyeIcon
+  Plus, Search, Eye, Edit2, Trash2, Copy, X, 
+  ChevronLeft, ChevronRight, BarChart3
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import DOMPurify from 'dompurify';
@@ -10,17 +10,98 @@ import type { LandingPage } from '../types';
 import { useLandingPages } from '../hooks/useApi';
 
 export default function LandingPageList() {
-  const { data: pages, loading, total, page, totalPages, pageSize, refresh, create, update, remove } = useLandingPages(1, 10);
+  const { data: pages, loading, total, totalPages, create, update, remove } = useLandingPages(1, 10);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [selectedPage, setSelectedPage] = useState<LandingPage | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  const [formData, setFormData] = useState({
+    name: '',
+    slug: '',
+    description: '',
+    confirmationTitle: '',
+    confirmationButtonText: '',
+    confirmationButtonColor: '#2563eb',
+    shareButtonText: '',
+    shareButtonColor: '#059669',
+    showShareButton: false,
+    lgpdText: '',
+    status: 'draft' as 'draft' | 'published',
+  });
 
   const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir esta landing page?')) {
       await remove(id);
+    }
+  };
+
+  const openCreate = () => {
+    setFormData({
+      name: '',
+      slug: '',
+      description: '',
+      confirmationTitle: '',
+      confirmationButtonText: '',
+      confirmationButtonColor: '#2563eb',
+      shareButtonText: '',
+      shareButtonColor: '#059669',
+      showShareButton: false,
+      lgpdText: '',
+      status: 'draft',
+    });
+    setEditingId(null);
+    setIsEditing(true);
+    setFormError('');
+    setShowModal(true);
+  };
+
+  const openEdit = (p: LandingPage) => {
+    setFormData({
+      name: p.name,
+      slug: p.slug,
+      description: p.description,
+      confirmationTitle: p.confirmationTitle,
+      confirmationButtonText: p.confirmationButtonText,
+      confirmationButtonColor: p.confirmationButtonColor,
+      shareButtonText: p.shareButtonText || '',
+      shareButtonColor: p.shareButtonColor || '#059669',
+      showShareButton: p.showShareButton || false,
+      lgpdText: p.lgpdText || '',
+      status: p.status,
+    });
+    setEditingId(p.id);
+    setIsEditing(true);
+    setFormError('');
+    setShowModal(true);
+  };
+
+  const handleSave = async () => {
+    if (!formData.name || !formData.slug) {
+      setFormError('Nome e slug são obrigatórios.');
+      return;
+    }
+    setSaving(true);
+    setFormError('');
+    try {
+      if (editingId) {
+        await update(editingId, formData);
+      } else {
+        await create(formData);
+      }
+      setShowModal(false);
+      setIsEditing(false);
+      setEditingId(null);
+    } catch {
+      setFormError('Erro ao salvar landing page.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -66,7 +147,7 @@ export default function LandingPageList() {
             <option value="draft">Rascunhos</option>
           </select>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors w-full sm:w-auto justify-center">
+        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors w-full sm:w-auto justify-center">
           <Plus className="w-4 h-4" />
           Nova Landing Page
         </button>
@@ -155,7 +236,7 @@ export default function LandingPageList() {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-lg transition-colors" title="Editar">
+                          <button onClick={() => openEdit(page)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-lg transition-colors" title="Editar">
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="Duplicar">
@@ -202,6 +283,92 @@ export default function LandingPageList() {
             </button>
           </div>
         </div>
+      )}
+
+      {showModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => { if (!isEditing) { setShowModal(false); } }}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white flex items-center justify-between p-6 border-b border-gray-200 z-10">
+              <h2 className="text-lg font-semibold">
+                {editingId ? 'Editar Landing Page' : 'Nova Landing Page'}
+              </h2>
+              <button onClick={() => { setShowModal(false); setIsEditing(false); setEditingId(null); }} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {formError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{formError}</div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
+                  <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Slug *</label>
+                  <input type="text" value={formData.slug} onChange={e => setFormData({...formData, slug: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+                <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={3} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Título de Confirmação</label>
+                <input type="text" value={formData.confirmationTitle} onChange={e => setFormData({...formData, confirmationTitle: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Texto do Botão</label>
+                  <input type="text" value={formData.confirmationButtonText} onChange={e => setFormData({...formData, confirmationButtonText: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cor do Botão</label>
+                  <input type="color" value={formData.confirmationButtonColor} onChange={e => setFormData({...formData, confirmationButtonColor: e.target.value})} className="w-full h-10 px-1 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={formData.showShareButton} onChange={e => setFormData({...formData, showShareButton: e.target.checked})} className="rounded border-gray-300" />
+                  Mostrar botão de compartilhar
+                </label>
+              </div>
+              {formData.showShareButton && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Texto Compartilhar</label>
+                    <input type="text" value={formData.shareButtonText} onChange={e => setFormData({...formData, shareButtonText: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cor Compartilhar</label>
+                    <input type="color" value={formData.shareButtonColor} onChange={e => setFormData({...formData, shareButtonColor: e.target.value})} className="w-full h-10 px-1 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                  </div>
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Texto LGPD</label>
+                <textarea value={formData.lgpdText} onChange={e => setFormData({...formData, lgpdText: e.target.value})} rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none" />
+              </div>
+              <div className="flex justify-end gap-3 pt-4">
+                <button onClick={() => { setShowModal(false); setIsEditing(false); setEditingId(null); }} className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
+                <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  {saving ? 'Salvando...' : editingId ? 'Salvar Alterações' : 'Criar Landing Page'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
       )}
 
       {showPreview && selectedPage && (

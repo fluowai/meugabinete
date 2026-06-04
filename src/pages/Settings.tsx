@@ -60,17 +60,6 @@ export default function SettingsPage() {
     groq: { name: 'Groq (Llama)', defaultModel: 'llama-3.3-70b-versatile', icon: Key },
   };
 
-  useEffect(() => {
-    fetchLLMs();
-    fetchAgents();
-    fetchAgentDocs();
-  }, []);
-
-  // Update default model input when provider changes
-  useEffect(() => {
-    setDefaultModel(providerMeta[selectedProvider].defaultModel);
-  }, [selectedProvider]);
-
   // Alert message controller
   const triggerAlert = (type: 'success' | 'error', msg: string) => {
     if (type === 'success') {
@@ -137,6 +126,16 @@ export default function SettingsPage() {
       if (local) setAgentDocs(JSON.parse(local));
     }
   };
+
+  useEffect(() => {
+    fetchLLMs();
+    fetchAgents();
+    fetchAgentDocs();
+  }, []);
+
+  useEffect(() => {
+    setDefaultModel(providerMeta[selectedProvider].defaultModel);
+  }, [selectedProvider]);
 
   // REGISTER OR UPDATE LLM
   const handleSaveLLM = async (e: React.FormEvent) => {

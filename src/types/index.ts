@@ -2,7 +2,8 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'manager' | 'user';
+  role: 'super_admin' | 'admin' | 'manager' | 'user';
+  tenantId?: string;
   avatar?: string;
   phone?: string;
   status: 'active' | 'inactive';
@@ -13,6 +14,7 @@ export interface User {
 
 export interface LandingPage {
   id: string;
+  tenantId?: string;
   name: string;
   slug: string;
   description: string;
@@ -45,6 +47,7 @@ export interface FormField {
 
 export interface Citizen {
   id: string;
+  tenantId?: string;
   name: string;
   email?: string;
   phone?: string;
@@ -74,6 +77,7 @@ export interface Citizen {
 
 export interface Organization {
   id: string;
+  tenantId?: string;
   name: string;
   fantasyName?: string;
   cnpj?: string;
@@ -110,6 +114,7 @@ export interface OrganizationContact {
 
 export interface Appointment {
   id: string;
+  tenantId?: string;
   title: string;
   description?: string;
   date: string;
@@ -139,6 +144,7 @@ export interface AppointmentAttendee {
 
 export interface Relationship {
   id: string;
+  tenantId?: string;
   type: 'family' | 'friend' | 'colleague' | 'neighbor' | 'political' | 'business' | 'other';
   citizenId: string;
   relatedToId: string;
@@ -151,6 +157,7 @@ export interface Relationship {
 
 export interface Mobilization {
   id: string;
+  tenantId?: string;
   name: string;
   description: string;
   type: 'petition' | 'demonstration' | 'event' | 'campaign' | 'volunteer' | 'donation';
@@ -168,6 +175,7 @@ export interface Mobilization {
 
 export interface Request {
   id: string;
+  tenantId?: string;
   title: string;
   description: string;
   subject?: string;
@@ -199,6 +207,7 @@ export interface Request {
 
 export interface Amendment {
   id: string;
+  tenantId?: string;
   number: string;
   year: number;
   status: 'draft' | 'proposed' | 'approved' | 'rejected' | 'withdrawn';
@@ -217,6 +226,7 @@ export interface Amendment {
 
 export interface WhatsAppCampaign {
   id: string;
+  tenantId?: string;
   name: string;
   description?: string;
   status: 'draft' | 'scheduled' | 'sending' | 'completed' | 'cancelled';
@@ -245,6 +255,7 @@ export interface WhatsAppContact {
 
 export interface EmailCampaign {
   id: string;
+  tenantId?: string;
   name: string;
   subject: string;
   body: string;
@@ -271,6 +282,7 @@ export interface Report {
 
 export interface Collaborator {
   id: string;
+  tenantId?: string;
   name: string;
   email: string;
   phone?: string;
@@ -284,6 +296,7 @@ export interface Collaborator {
 
 export interface BasicRegister {
   id: string;
+  tenantId?: string;
   category: 'party' | 'position' | 'sector' | 'unity' | 'zone' | 'county';
   name: string;
   code?: string;
@@ -296,6 +309,7 @@ export interface BasicRegister {
 
 export interface Signature {
   id: string;
+  tenantId?: string;
   name: string;
   role: string;
   documentUrl?: string;
@@ -328,4 +342,118 @@ export interface DashboardStats {
   resolvedDemands: number;
   topNeighborhoods: { name: string; count: number }[];
   topSubjects: { name: string; count: number }[];
+}
+
+export interface Plan {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  currency: string;
+  interval: 'monthly' | 'yearly';
+  features: string[];
+  limits: PlanLimits;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlanLimits {
+  maxCitizens: number;
+  maxRequests: number;
+  maxOrganizations: number;
+  maxAppointments: number;
+  maxCollaborators: number;
+  maxMobilizations: number;
+  maxLandingPages: number;
+  maxAmendments: number;
+  maxWhatsAppCampaigns: number;
+  maxEmailCampaigns: number;
+  maxTeamMembers: number;
+  maxStorageMb: number;
+  hasWhatsApp: boolean;
+  hasAI: boolean;
+  hasReports: boolean;
+  hasApi: boolean;
+  hasPrioritySupport: boolean;
+}
+
+export interface Tenant {
+  id: string;
+  name: string;
+  slug: string;
+  planId: string;
+  plan?: Plan;
+  document?: string;
+  email: string;
+  phone?: string;
+  status: 'active' | 'suspended' | 'trial' | 'cancelled';
+  settings: TenantSettings;
+  assignedUsers: number;
+  createdAt: string;
+  updatedAt: string;
+  trialEndsAt?: string;
+  suspendedAt?: string;
+}
+
+export interface TenantSettings {
+  timezone: string;
+  locale: string;
+  theme: 'light' | 'dark' | 'auto';
+  businessHours: BusinessHour[];
+  customDomain?: string;
+  logoUrl?: string;
+  primaryColor: string;
+}
+
+export interface BusinessHour {
+  day: number;
+  open: string;
+  close: string;
+  enabled: boolean;
+}
+
+export interface SupportTicket {
+  id: string;
+  tenantId: string;
+  tenantName?: string;
+  subject: string;
+  message: string;
+  category: 'bug' | 'feature' | 'question' | 'billing' | 'other';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: 'open' | 'in_progress' | 'waiting' | 'resolved' | 'closed';
+  messages: SupportMessage[];
+  assignedToId?: string;
+  assignedToName?: string;
+  createdBy: string;
+  createdByName?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SupportMessage {
+  id: string;
+  ticketId: string;
+  authorId: string;
+  authorName: string;
+  authorType: 'tenant' | 'support';
+  message: string;
+  attachments?: string[];
+  createdAt: string;
+}
+
+export interface SuperAdminStats {
+  totalTenants: number;
+  activeTenants: number;
+  trialTenants: number;
+  suspendedTenants: number;
+  totalPlans: number;
+  openTickets: number;
+  totalUsers: number;
+  totalStorageUsed: number;
+  monthlyRevenue: number;
+  revenueGrowth: number;
+  recentTenants: Tenant[];
+  recentTickets: SupportTicket[];
+  topPlans: { planName: string; count: number; revenue: number }[];
 }

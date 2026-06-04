@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Plus, Search, Eye, Edit2, Trash2, Users, Heart, X } from 'lucide-react';
 import { cn } from '../lib/utils';
-import type { Relationship, Citizen } from '../types';
+import type { Relationship } from '../types';
 import { useRelationships, useCitizens } from '../hooks/useApi';
 
 const relationshipTypes = [
@@ -21,7 +21,7 @@ const strengthConfig = {
 };
 
 export default function Relationships() {
-  const { data: relationships, loading, refresh, create, update, remove } = useRelationships();
+  const { data: relationships, loading, create, update, remove } = useRelationships();
   const { data: citizens } = useCitizens(1, 1000);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -99,9 +99,13 @@ export default function Relationships() {
 
   const handleSave = async () => {
     try {
+      if (formData.citizenId === formData.relatedToId) {
+        console.error('Um cidadão não pode se relacionar consigo mesmo.');
+        return;
+      }
       const data = {
         ...formData,
-        related_to_name: getCitizenName(formData.relatedToId),
+        relatedToName: getCitizenName(formData.relatedToId),
       };
       if (selectedRelationship) {
         await update(selectedRelationship.id, data);

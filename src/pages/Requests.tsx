@@ -105,6 +105,8 @@ export default function Requests() {
   const [activeTab, setActiveTab] = useState<StatusTab>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchingCep, setSearchingCep] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [saving, setSaving] = useState(false);
   const protocolPreview = useMemo(() => `#${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`, []);
   const [formData, setFormData] = useState({
     requesterId: '',
@@ -196,6 +198,8 @@ export default function Requests() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError('');
+    setSaving(true);
     const selectedCitizen = citizens.find(c => c.id === formData.requesterId);
     const newRequest = {
       title: formData.title.trim() || formData.subject.trim(),
@@ -221,7 +225,9 @@ export default function Requests() {
       setIsModalOpen(false);
       setFormData({ requesterId: '', subject: '', neighborhood: '', cep: '', address: '', addressNumber: '', complement: '', city: '', state: '', priority: 'medium', description: '', title: '' });
     } catch (err) {
-      console.error('Erro ao criar demanda:', err);
+      setFormError(err instanceof Error ? err.message : 'Erro ao criar demanda.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -571,19 +577,29 @@ export default function Requests() {
                     />
                   </div>
 
+                  {formError && (
+                    <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                      {formError}
+                    </div>
+                  )}
                   <div className="flex gap-4 pt-2">
                     <button
                       type="button" onClick={() => setIsModalOpen(false)}
-                      className="flex-1 h-14 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-2xl transition-all"
+                      disabled={saving}
+                      className="flex-1 h-14 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-2xl transition-all disabled:opacity-60"
                     >
                       Cancelar
                     </button>
                     <button
                       type="submit"
-                      className="flex-[2] h-14 bg-blue-600 text-white text-sm font-black uppercase tracking-widest rounded-2xl hover:bg-blue-700 shadow-xl shadow-blue-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                      disabled={saving}
+                      className="flex-[2] h-14 bg-blue-600 text-white text-sm font-black uppercase tracking-widest rounded-2xl hover:bg-blue-700 shadow-xl shadow-blue-200 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-60"
                     >
-                      <CheckCircle className="w-5 h-5" />
-                      Registrar Demanda
+                      {saving ? (
+                        <><Loader2 className="w-5 h-5 animate-spin" /> Salvando...</>
+                      ) : (
+                        <><CheckCircle className="w-5 h-5" /> Registrar Demanda</>
+                      )}
                     </button>
                   </div>
                 </div>

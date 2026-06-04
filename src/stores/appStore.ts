@@ -2,17 +2,25 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { DashboardStats, User } from '../types';
 
+interface TenantOverride {
+  tenantId: string;
+  tenantName: string;
+}
+
 interface AppState {
   user: User | null;
   isAuthenticated: boolean;
   currentPage: string;
   dashboardStats: DashboardStats;
   sidebarOpen: boolean;
+  tenantOverride: TenantOverride | null;
 
   setUser: (user: User | null) => void;
   setCurrentPage: (page: string) => void;
   setSidebarOpen: (open: boolean) => void;
   setDashboardStats: (stats: DashboardStats) => void;
+  setTenantOverride: (tenantId: string, tenantName: string) => void;
+  clearTenantOverride: () => void;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
@@ -23,7 +31,7 @@ const createDevUser = (email: string): User => ({
   id: 'dev-admin',
   name: 'Admin Gabinete',
   email,
-  role: 'admin',
+  role: email.includes('superadmin') ? 'super_admin' : 'admin',
   status: 'active',
   createdAt: now(),
   updatedAt: now(),
@@ -70,11 +78,14 @@ export const useStore = create<AppState>()((set) => ({
     topSubjects: [] as { name: string; count: number }[],
   },
   sidebarOpen: true,
+  tenantOverride: null,
 
   setUser: (user) => set({ user, isAuthenticated: !!user }),
   setCurrentPage: (page) => set({ currentPage: page }),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   setDashboardStats: (stats) => set({ dashboardStats: stats }),
+  setTenantOverride: (tenantId, tenantName) => set({ tenantOverride: { tenantId, tenantName } }),
+  clearTenantOverride: () => set({ tenantOverride: null }),
 
   login: async (email, password) => {
     try {
@@ -106,7 +117,7 @@ export const useStore = create<AppState>()((set) => ({
 
   logout: async () => {
     await supabase.auth.signOut();
-    set({ user: null, isAuthenticated: false, currentPage: 'dashboard' });
+    set({ user: null, isAuthenticated: false, currentPage: 'dashboard', tenantOverride: null });
   },
 }));
 

@@ -13,17 +13,48 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
-import { cn } from '../lib/utils';
 import type { Organization } from '../types';
 import { useOrganizations } from '../hooks/useApi';
 
+interface OrgFormData {
+  name: string;
+  fantasyName: string;
+  cnpj: string;
+  email: string;
+  phone: string;
+  type: Organization['type'];
+  city: string;
+  state: string;
+  tags: string;
+  notes: string;
+  status: Organization['status'];
+}
+
 export default function OrganizationList() {
-  const { data: organizations, loading, remove } = useOrganizations();
+  const { data: organizations, loading, create, update, remove } = useOrganizations();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
   const itemsPerPage = 10;
+
+  const [formData, setFormData] = useState<OrgFormData>({
+    name: '',
+    fantasyName: '',
+    cnpj: '',
+    email: '',
+    phone: '',
+    type: 'party',
+    city: '',
+    state: '',
+    tags: '',
+    notes: '',
+    status: 'lead',
+  });
 
   const filteredOrgs = organizations.filter(org => 
     org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -43,6 +74,61 @@ export default function OrganizationList() {
   const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja excluir esta organização?')) {
       await remove(id);
+    }
+  };
+
+  const openCreate = () => {
+    setFormData({ name: '', fantasyName: '', cnpj: '', email: '', phone: '', type: 'party', city: '', state: '', tags: '', notes: '', status: 'lead' });
+    setEditingId(null);
+    setIsEditing(true);
+    setFormError('');
+    setShowModal(true);
+  };
+
+  const openEdit = (org: Organization) => {
+    setFormData({
+      name: org.name,
+      fantasyName: org.fantasyName || '',
+      cnpj: org.cnpj || '',
+      email: org.email || '',
+      phone: org.phone || '',
+      type: org.type,
+      city: org.city || '',
+      state: org.state || '',
+      tags: org.tags?.join(', ') || '',
+      notes: org.notes || '',
+      status: org.status,
+    });
+    setEditingId(org.id);
+    setIsEditing(true);
+    setFormError('');
+    setShowModal(true);
+  };
+
+  const handleSave = async () => {
+    if (!formData.name) {
+      setFormError('Nome é obrigatório.');
+      return;
+    }
+    setSaving(true);
+    setFormError('');
+    try {
+      const payload = {
+        ...formData,
+        tags: formData.tags ? formData.tags.split(',').map(s => s.trim()).filter(Boolean) : [],
+      };
+      if (editingId) {
+        await update(editingId, payload);
+      } else {
+        await create(payload);
+      }
+      setShowModal(false);
+      setIsEditing(false);
+      setEditingId(null);
+    } catch {
+      setFormError('Erro ao salvar organização.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -75,7 +161,7 @@ export default function OrganizationList() {
             className="w-full h-10 pl-10 pr-4 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
           />
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors w-full sm:w-auto justify-center">
+        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors w-full sm:w-auto justify-center">
           <Plus className="w-4 h-4" />
           Nova Organização
         </button>
@@ -143,7 +229,7 @@ export default function OrganizationList() {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-lg transition-colors">
+                        <button onClick={() => openEdit(org)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-lg transition-colors">
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
@@ -187,28 +273,100 @@ export default function OrganizationList() {
         </div>
       )}
 
-      {showModal && selectedOrg && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full">
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { if (!isEditing) { setShowModal(false); } }}>
+          <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold">{selectedOrg.name}</h2>
-              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+              <h2 className="text-lg font-semibold">
+                {isEditing ? (editingId ? 'Editar Organização' : 'Nova Organização') : selectedOrg?.name}
+              </h2>
+              <button onClick={() => { setShowModal(false); setIsEditing(false); setEditingId(null); setSelectedOrg(null); }} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-6 space-y-4">
-              <div className="flex items-center gap-3 text-sm">
-                <MapPin className="w-4 h-4 text-gray-400" />
-                <span>{selectedOrg.city && selectedOrg.state ? `${selectedOrg.city}, ${selectedOrg.state}` : 'Não informado'}</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <Mail className="w-4 h-4 text-gray-400" />
-                <span>{selectedOrg.email || 'Não informado'}</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <Phone className="w-4 h-4 text-gray-400" />
-                <span>{selectedOrg.phone || 'Não informado'}</span>
-              </div>
+              {isEditing ? (
+                <>
+                  {formError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{formError}</div>
+                  )}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nome *</label>
+                      <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nome Fantasia</label>
+                      <input type="text" value={formData.fantasyName} onChange={e => setFormData({...formData, fantasyName: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">CNPJ</label>
+                      <input type="text" value={formData.cnpj} onChange={e => setFormData({...formData, cnpj: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+                      <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as Organization['type']})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                        <option value="party">Partido</option>
+                        <option value="union">Sindicato</option>
+                        <option value="association">Associação</option>
+                        <option value="company">Empresa</option>
+                        <option value="other">Outros</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                      <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                      <input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
+                      <input type="text" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                      <input type="text" value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tags (separadas por vírgula)</label>
+                    <input type="text" value={formData.tags} onChange={e => setFormData({...formData, tags: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" placeholder="tag1, tag2" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                    <textarea value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} rows={3} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none" />
+                  </div>
+                  <div className="flex justify-end gap-3 pt-4">
+                    <button onClick={() => { setShowModal(false); setIsEditing(false); setEditingId(null); setSelectedOrg(null); }} className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
+                    <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                      {saving ? 'Salvando...' : editingId ? 'Salvar Alterações' : 'Criar Organização'}
+                    </button>
+                  </div>
+                </>
+              ) : selectedOrg ? (
+                <>
+                  <div className="flex items-center gap-3 text-sm">
+                    <MapPin className="w-4 h-4 text-gray-400" />
+                    <span>{selectedOrg.city && selectedOrg.state ? `${selectedOrg.city}, ${selectedOrg.state}` : 'Não informado'}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <Mail className="w-4 h-4 text-gray-400" />
+                    <span>{selectedOrg.email || 'Não informado'}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <Phone className="w-4 h-4 text-gray-400" />
+                    <span>{selectedOrg.phone || 'Não informado'}</span>
+                  </div>
+                </>
+              ) : null}
             </div>
           </div>
         </div>

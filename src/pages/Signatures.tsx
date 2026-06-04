@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Plus, Search, Edit2, Trash2, Eye, X, PenTool, FileText } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { Signature } from '../types';
@@ -18,12 +18,14 @@ interface SignatureFormData {
 }
 
 export default function Signatures() {
-  const { data: signatures, loading, refresh, create, update, remove } = useSignatures();
+  const { data: signatures, loading, create, update, remove } = useSignatures();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [selectedSignature, setSelectedSignature] = useState<Signature | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
   const [formData, setFormData] = useState<SignatureFormData>({
     name: '',
     role: '',
@@ -88,8 +90,17 @@ export default function Signatures() {
   };
 
   const handleSave = async () => {
-    if (!formData.name || !formData.role) return;
+    if (!formData.name) {
+      setFormError('Nome é obrigatório.');
+      return;
+    }
+    if (!formData.role) {
+      setFormError('Cargo é obrigatório.');
+      return;
+    }
 
+    setSaving(true);
+    setFormError('');
     try {
       if (selectedSignature) {
         await update(selectedSignature.id, formData);
@@ -97,8 +108,10 @@ export default function Signatures() {
         await create(formData);
       }
       closeModal();
-    } catch (err) {
-      console.error('Erro ao salvar assinatura:', err);
+    } catch {
+      setFormError('Erro ao salvar assinatura.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -241,6 +254,9 @@ export default function Signatures() {
             </div>
 
             <div className="p-6 space-y-6">
+              {formError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{formError}</div>
+              )}
               {selectedSignature && !isEditing ? (
                 <div className="space-y-6">
                   <div className="text-center pb-4 border-b border-gray-100">
@@ -355,10 +371,10 @@ export default function Signatures() {
                     </button>
                     <button
                       onClick={handleSave}
-                      disabled={!formData.name || !formData.role}
+                      disabled={saving}
                       className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {selectedSignature ? 'Salvar Alterações' : 'Criar Assinatura'}
+                      {saving ? 'Salvando...' : selectedSignature ? 'Salvar Alterações' : 'Criar Assinatura'}
                     </button>
                   </div>
                 </div>

@@ -47,8 +47,93 @@ export default function Amendments() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [selectedAmendment, setSelectedAmendment] = useState<Amendment | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
 
-  const { data: amendments, loading, refresh, remove } = useAmendments();
+  const { data: amendments, loading, create, update, remove } = useAmendments();
+
+  const [formData, setFormData] = useState({
+    number: '',
+    year: new Date().getFullYear(),
+    author: '',
+    coAuthors: '',
+    subject: '',
+    description: '',
+    budget: 0,
+    category: 'education' as Amendment['category'],
+    status: 'draft' as Amendment['status'],
+    location: '',
+    beneficiaries: '',
+  });
+
+  const openCreate = () => {
+    setFormData({
+      number: '',
+      year: new Date().getFullYear(),
+      author: '',
+      coAuthors: '',
+      subject: '',
+      description: '',
+      budget: 0,
+      category: 'education',
+      status: 'draft',
+      location: '',
+      beneficiaries: '',
+    });
+    setSelectedAmendment(null);
+    setIsEditing(true);
+    setFormError('');
+    setShowModal(true);
+  };
+
+  const openEdit = (am: Amendment) => {
+    setFormData({
+      number: am.number,
+      year: am.year,
+      author: am.author,
+      coAuthors: am.coAuthors?.join(', ') || '',
+      subject: am.subject,
+      description: am.description,
+      budget: am.budget || 0,
+      category: am.category,
+      status: am.status,
+      location: am.location || '',
+      beneficiaries: am.beneficiaries || '',
+    });
+    setSelectedAmendment(am);
+    setIsEditing(true);
+    setFormError('');
+    setShowModal(true);
+  };
+
+  const handleSave = async () => {
+    if (!formData.number || !formData.author || !formData.subject) {
+      setFormError('Número, autor e tema são obrigatórios.');
+      return;
+    }
+    setSaving(true);
+    setFormError('');
+    try {
+      const payload = {
+        ...formData,
+        coAuthors: formData.coAuthors ? formData.coAuthors.split(',').map(s => s.trim()) : [],
+        budget: formData.budget || undefined,
+      };
+      if (selectedAmendment) {
+        await update(selectedAmendment.id, payload);
+      } else {
+        await create(payload);
+      }
+      setShowModal(false);
+      setIsEditing(false);
+      setSelectedAmendment(null);
+    } catch {
+      setFormError('Erro ao salvar emenda.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const filteredAmendments = amendments.filter(am => {
     if (statusFilter && am.status !== statusFilter) return false;
@@ -97,7 +182,7 @@ export default function Amendments() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Emendas</h1>
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
+        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">
           <Plus className="w-4 h-4" />
           Nova Emenda
         </button>
@@ -212,7 +297,7 @@ export default function Amendments() {
                       >
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-lg">
+                      <button onClick={() => openEdit(am)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded-lg">
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
@@ -230,64 +315,138 @@ export default function Amendments() {
         </table>
       </div>
 
-      {showModal && selectedAmendment && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { if (!isEditing) { setShowModal(false); } }}>
+          <div className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-lg font-semibold">Emenda nº {selectedAmendment.number}/{selectedAmendment.year}</h2>
-              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+              <h2 className="text-lg font-semibold">
+                {isEditing ? (selectedAmendment ? `Editar Emenda nº ${selectedAmendment.number}` : 'Nova Emenda') : selectedAmendment ? `Emenda nº ${selectedAmendment.number}/${selectedAmendment.year}` : ''}
+              </h2>
+              <button onClick={() => { setShowModal(false); setIsEditing(false); setSelectedAmendment(null); }} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-6 space-y-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">Status:</span>
-                <span className={cn("px-2 py-1 rounded-full text-xs font-medium", statusBadgeColors[selectedAmendment.status])}>
-                  {statusOptions.find(s => s.value === selectedAmendment.status)?.label || selectedAmendment.status}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">Categoria:</span>
-                <span className={cn("px-2 py-1 rounded-full text-xs font-medium", categoryBadgeColors[selectedAmendment.category])}>
-                  {categoryOptions.find(c => c.value === selectedAmendment.category)?.label || selectedAmendment.category}
-                </span>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-gray-700">Autor</h3>
-                <p className="text-sm text-gray-500">{selectedAmendment.author}</p>
-              </div>
-              {selectedAmendment.coAuthors && selectedAmendment.coAuthors.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-700">Coautores</h3>
-                  <p className="text-sm text-gray-500">{selectedAmendment.coAuthors.join(', ')}</p>
-                </div>
-              )}
-              <div>
-                <h3 className="text-sm font-medium text-gray-700">Tema</h3>
-                <p className="text-sm text-gray-500">{selectedAmendment.subject}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-gray-700">Descrição</h3>
-                <p className="text-sm text-gray-500">{selectedAmendment.description}</p>
-              </div>
-              {selectedAmendment.budget && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-700">Orçamento</h3>
-                  <p className="text-sm text-gray-500">{formatCurrency(selectedAmendment.budget)}</p>
-                </div>
-              )}
-              {selectedAmendment.location && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-700">Local</h3>
-                  <p className="text-sm text-gray-500">{selectedAmendment.location}</p>
-                </div>
-              )}
-              {selectedAmendment.beneficiaries && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-700">Beneficiários</h3>
-                  <p className="text-sm text-gray-500">{selectedAmendment.beneficiaries}</p>
-                </div>
-              )}
+              {isEditing ? (
+                <>
+                  {formError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{formError}</div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Número *</label>
+                    <input type="text" value={formData.number} onChange={e => setFormData({...formData, number: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Ano</label>
+                      <input type="number" value={formData.year} onChange={e => setFormData({...formData, year: parseInt(e.target.value) || new Date().getFullYear()})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                      <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value as Amendment['category']})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                        {categoryOptions.filter(c => c.value).map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Autor *</label>
+                    <input type="text" value={formData.author} onChange={e => setFormData({...formData, author: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Coautores (separados por vírgula)</label>
+                    <input type="text" value={formData.coAuthors} onChange={e => setFormData({...formData, coAuthors: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" placeholder="Nome 1, Nome 2" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tema *</label>
+                    <input type="text" value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+                    <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={3} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Orçamento (R$)</label>
+                      <input type="number" value={formData.budget || ''} onChange={e => setFormData({...formData, budget: parseFloat(e.target.value) || 0})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                      <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as Amendment['status']})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                        {statusOptions.filter(s => s.value).map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Local</label>
+                    <input type="text" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Beneficiários</label>
+                    <input type="text" value={formData.beneficiaries} onChange={e => setFormData({...formData, beneficiaries: e.target.value})} className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500" />
+                  </div>
+                  <div className="flex justify-end gap-3 pt-4">
+                    <button onClick={() => { setShowModal(false); setIsEditing(false); setSelectedAmendment(null); }} className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancelar</button>
+                    <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                      {saving ? 'Salvando...' : selectedAmendment ? 'Salvar Alterações' : 'Criar Emenda'}
+                    </button>
+                  </div>
+                </>
+              ) : selectedAmendment ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">Status:</span>
+                    <span className={cn("px-2 py-1 rounded-full text-xs font-medium", statusBadgeColors[selectedAmendment.status])}>
+                      {statusOptions.find(s => s.value === selectedAmendment.status)?.label || selectedAmendment.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">Categoria:</span>
+                    <span className={cn("px-2 py-1 rounded-full text-xs font-medium", categoryBadgeColors[selectedAmendment.category])}>
+                      {categoryOptions.find(c => c.value === selectedAmendment.category)?.label || selectedAmendment.category}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700">Autor</h3>
+                    <p className="text-sm text-gray-500">{selectedAmendment.author}</p>
+                  </div>
+                  {selectedAmendment.coAuthors && selectedAmendment.coAuthors.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-700">Coautores</h3>
+                      <p className="text-sm text-gray-500">{selectedAmendment.coAuthors.join(', ')}</p>
+                    </div>
+                  )}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700">Tema</h3>
+                    <p className="text-sm text-gray-500">{selectedAmendment.subject}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700">Descrição</h3>
+                    <p className="text-sm text-gray-500">{selectedAmendment.description}</p>
+                  </div>
+                  {selectedAmendment.budget && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-700">Orçamento</h3>
+                      <p className="text-sm text-gray-500">{formatCurrency(selectedAmendment.budget)}</p>
+                    </div>
+                  )}
+                  {selectedAmendment.location && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-700">Local</h3>
+                      <p className="text-sm text-gray-500">{selectedAmendment.location}</p>
+                    </div>
+                  )}
+                  {selectedAmendment.beneficiaries && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-700">Beneficiários</h3>
+                      <p className="text-sm text-gray-500">{selectedAmendment.beneficiaries}</p>
+                    </div>
+                  )}
+                </>
+              ) : null}
             </div>
           </div>
         </div>

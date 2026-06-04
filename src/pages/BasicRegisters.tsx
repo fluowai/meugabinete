@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, Eye, X, Building2, Tag, MapPin, Layers, Briefcase, Map } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Search, Edit2, Trash2, Eye, X, Building2, Tag, MapPin, Layers, Map } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { BasicRegister } from '../types';
 import { useBasicRegisters } from '../hooks/useApi';
@@ -27,13 +27,15 @@ interface BasicRegisterFormData {
 }
 
 export default function BasicRegisters() {
-  const { data: registers, loading, refresh, create, update, remove } = useBasicRegisters();
+  const { data: registers, loading, create, update, remove } = useBasicRegisters();
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [selectedRegister, setSelectedRegister] = useState<BasicRegister | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
   const [formData, setFormData] = useState<BasicRegisterFormData>({
     category: 'party',
     name: '',
@@ -99,8 +101,13 @@ export default function BasicRegisters() {
   };
 
   const handleSave = async () => {
-    if (!formData.name) return;
+    if (!formData.name) {
+      setFormError('Nome é obrigatório.');
+      return;
+    }
 
+    setSaving(true);
+    setFormError('');
     try {
       if (selectedRegister) {
         await update(selectedRegister.id, formData);
@@ -108,8 +115,10 @@ export default function BasicRegisters() {
         await create(formData);
       }
       closeModal();
-    } catch (err) {
-      console.error('Erro ao salvar registro:', err);
+    } catch {
+      setFormError('Erro ao salvar registro.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -202,7 +211,6 @@ export default function BasicRegisters() {
             ) : (
               filteredRegisters.map((register) => {
                 const config = categoryConfig[register.category];
-                const Icon = config?.icon || Building2;
                 return (
                   <tr key={register.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-4 py-4">
@@ -276,6 +284,9 @@ export default function BasicRegisters() {
             </div>
 
             <div className="p-6 space-y-6">
+              {formError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{formError}</div>
+              )}
               {selectedRegister && !isEditing ? (
                 <div className="space-y-6">
                   <div className="text-center pb-4 border-b border-gray-100">
@@ -378,10 +389,10 @@ export default function BasicRegisters() {
                     </button>
                     <button
                       onClick={handleSave}
-                      disabled={!formData.name}
+                      disabled={saving}
                       className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {selectedRegister ? 'Salvar Alterações' : 'Criar Registro'}
+                      {saving ? 'Salvando...' : selectedRegister ? 'Salvar Alterações' : 'Criar Registro'}
                     </button>
                   </div>
                 </div>

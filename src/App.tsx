@@ -9,9 +9,11 @@ import {
   Calendar,
   ChevronRight,
   Cpu,
+  CreditCard,
   FolderOpen,
   Layout,
   LayoutDashboard,
+  LifeBuoy,
   LogOut,
   Maximize2,
   Menu,
@@ -19,9 +21,11 @@ import {
   Moon,
   Send,
   Settings,
+  Shield,
   User,
   UserCheck,
   Users,
+  Wifi,
 } from 'lucide-react';
 import { cn } from './lib/utils';
 import { useStore } from './stores/appStore';
@@ -39,21 +43,26 @@ import ServiceAgents from './pages/ServiceAgents';
 import Team from './pages/Team';
 import Login from './pages/Login';
 import SettingsPage from './pages/Settings';
+import Connections from './pages/Connections';
+import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import TenantManagement from './pages/TenantManagement';
+import PlanManagement from './pages/PlanManagement';
+import SupportManagement from './pages/SupportManagement';
 
 type NavItem = {
   id: string;
   label: string;
   icon: any;
   component: ReactNode;
-  category: 'principal' | 'gestao' | 'configuracoes';
+  category: 'principal' | 'gestao' | 'configuracoes' | 'super_admin';
 };
 
 const navItems: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, component: <Dashboard />, category: 'principal' },
   { id: 'cidadaos', label: 'Cidadãos', icon: Users, component: <CitizenList />, category: 'principal' },
   { id: 'demandas', label: 'Demandas', icon: MessageSquare, component: <Requests />, category: 'principal' },
-  { id: 'whatsapp', label: 'Atendimentos', icon: Send, component: <WhatsApp defaultTab="direct" />, category: 'principal' },
-  { id: 'conexoes', label: 'Conexões', icon: Wifi, component: <WhatsApp defaultTab="connections" />, category: 'gestao' },
+  { id: 'whatsapp', label: 'Atendimentos', icon: Send, component: <WhatsApp />, category: 'principal' },
+  { id: 'conexoes', label: 'Conexões', icon: Wifi, component: <Connections />, category: 'gestao' },
   { id: 'compromissos', label: 'Compromissos', icon: Calendar, component: <AppointmentList />, category: 'principal' },
   { id: 'organizacoes', label: 'Organizações', icon: Building2, component: <OrganizationList />, category: 'principal' },
   { id: 'ai', label: 'Inteligência Artificial', icon: Cpu, component: <AI />, category: 'gestao' },
@@ -63,18 +72,25 @@ const navItems: NavItem[] = [
   { id: 'equipe', label: 'Equipe', icon: UserCheck, component: <Team />, category: 'gestao' },
   { id: 'colaboradores', label: 'Colaboradores', icon: FolderOpen, component: <Collaborators />, category: 'configuracoes' },
   { id: 'configuracoes', label: 'Configurações', icon: Settings, component: <SettingsPage />, category: 'configuracoes' },
+  { id: 'super-dashboard', label: 'Super Admin', icon: Shield, component: <SuperAdminDashboard />, category: 'super_admin' },
+  { id: 'super-tenants', label: 'Contas', icon: Building2, component: <TenantManagement />, category: 'super_admin' },
+  { id: 'super-plans', label: 'Planos', icon: CreditCard, component: <PlanManagement />, category: 'super_admin' },
+  { id: 'super-support', label: 'Suporte', icon: LifeBuoy, component: <SupportManagement />, category: 'super_admin' },
 ];
 
 const categories = [
   { key: 'principal', label: 'Operação' },
   { key: 'gestao', label: 'Gestão' },
   { key: 'configuracoes', label: 'Administração' },
+  { key: 'super_admin', label: 'Super Admin' },
 ] as const;
 
 export default function App() {
-  const { user, isAuthenticated, logout, sidebarOpen, setSidebarOpen, currentPage, setCurrentPage } = useStore();
+  const { user, isAuthenticated, logout, sidebarOpen, setSidebarOpen, currentPage, setCurrentPage, tenantOverride, clearTenantOverride } = useStore();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
+  const isSuperAdmin = user?.role === 'super_admin';
+  const isImpersonating = !!tenantOverride;
 
   useEffect(() => {
     const handleResize = () => {
@@ -95,7 +111,16 @@ export default function App() {
     return <Login />;
   }
 
-  const activeItem = navItems.find((item) => item.id === currentPage) || navItems[0];
+  const visibleNavItems = navItems.filter(item => {
+    if (item.category === 'super_admin') return isSuperAdmin && !isImpersonating;
+    return true;
+  });
+
+  let activeItem = visibleNavItems.find((item) => item.id === currentPage) || visibleNavItems[0];
+  if (activeItem.category === 'super_admin' && (!isSuperAdmin || isImpersonating)) {
+    activeItem = visibleNavItems[0];
+    if (currentPage !== visibleNavItems[0].id) setCurrentPage(visibleNavItems[0].id);
+  }
   const currentComponent = activeItem.component;
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
@@ -151,7 +176,8 @@ export default function App() {
 
         <div className="flex-1 overflow-y-auto px-3 py-5">
           {categories.map((cat) => {
-            const items = navItems.filter((item) => item.category === cat.key);
+            if (cat.key === 'super_admin' && (!isSuperAdmin || isImpersonating)) return null;
+            const items = visibleNavItems.filter((item) => item.category === cat.key);
             if (!items.length) return null;
 
             return (
@@ -198,6 +224,20 @@ export default function App() {
       </motion.aside>
 
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        {isImpersonating && (
+          <div className="flex h-10 shrink-0 items-center justify-between bg-amber-500 px-4 lg:px-7">
+            <span className="text-sm font-medium text-white">
+              Acessando como <strong>{tenantOverride?.tenantName}</strong>
+            </span>
+            <button
+              onClick={() => { clearTenantOverride(); setCurrentPage('super-dashboard'); }}
+              className="flex items-center gap-1.5 rounded-md bg-white/20 px-3 py-1 text-sm text-white hover:bg-white/30 transition-colors"
+            >
+              <Shield className="h-3.5 w-3.5" />
+              Voltar ao Super Admin
+            </button>
+          </div>
+        )}
         <header className="z-10 flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white/95 px-4 font-medium backdrop-blur lg:px-7">
           <div className="flex items-center gap-4">
             <button onClick={toggleSidebar} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100">

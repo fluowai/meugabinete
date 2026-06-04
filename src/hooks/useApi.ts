@@ -1,9 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useStore } from '../stores/appStore';
 import type { 
   LandingPage, Citizen, Organization, Appointment, 
   Mobilization, Request, Amendment, WhatsAppCampaign, EmailCampaign,
-  Collaborator, BasicRegister, Signature, Relationship, PaginatedResponse 
+  Collaborator, BasicRegister, Signature, Relationship, PaginatedResponse,
+  Tenant, Plan, SupportTicket, SupportMessage, SuperAdminStats
 } from '../types';
 
 // Helper de Mapeamento de Chaves de Snake para Camel
@@ -32,7 +34,7 @@ const getInitialMockData = <T>(key: string, defaultData: T[]): T[] => {
   const saved = localStorage.getItem(`gabinete_mock_${key}`);
   if (saved) {
     try {
-      return JSON.parse(saved);
+      return JSON.parse(saved).map(mapKeys);
     } catch {
       return defaultData;
     }
@@ -46,9 +48,22 @@ const saveMockData = <T>(key: string, data: T[]) => {
   }
 };
 
+const MOCK_TENANT_ID = 'tenant_demo';
+
+const getCurrentTenantId = (): string | null => {
+  try {
+    const state = useStore.getState();
+    if (state.tenantOverride) return state.tenantOverride.tenantId;
+    return state.user?.tenantId || null;
+  } catch {
+    return null;
+  }
+};
+
 const defaultCitizens: Citizen[] = [
   {
     id: 'c1',
+    tenantId: MOCK_TENANT_ID,
     name: 'Paulo Silva',
     phone: '(48) 99123-4567',
     cpf: '123.456.789-00',
@@ -67,6 +82,7 @@ const defaultCitizens: Citizen[] = [
   },
   {
     id: 'c2',
+    tenantId: MOCK_TENANT_ID,
     name: 'Ana Souza',
     phone: '(48) 98877-6655',
     cpf: '987.654.321-11',
@@ -85,6 +101,7 @@ const defaultCitizens: Citizen[] = [
   },
   {
     id: 'c3',
+    tenantId: MOCK_TENANT_ID,
     name: 'Carlos Ferreira',
     phone: '(11) 97766-5544',
     cpf: '111.222.333-44',
@@ -103,6 +120,7 @@ const defaultCitizens: Citizen[] = [
   },
   {
     id: 'c4',
+    tenantId: MOCK_TENANT_ID,
     name: 'Mariana Costa',
     phone: '(48) 99111-2222',
     cpf: '444.555.666-77',
@@ -121,6 +139,7 @@ const defaultCitizens: Citizen[] = [
   },
   {
     id: 'c5',
+    tenantId: MOCK_TENANT_ID,
     name: 'Roberto Almeida',
     phone: '(48) 98400-1122',
     cpf: '888.777.666-55',
@@ -142,6 +161,7 @@ const defaultCitizens: Citizen[] = [
 const defaultRequests: Request[] = [
   {
     id: 'r1',
+    tenantId: MOCK_TENANT_ID,
     title: 'Poda de Árvores na Av. Beira Mar',
     description: 'Árvores de grande porte obstruindo a sinalização de trânsito e a iluminação pública da avenida.',
     category: 'complaint',
@@ -162,6 +182,7 @@ const defaultRequests: Request[] = [
   },
   {
     id: 'r2',
+    tenantId: MOCK_TENANT_ID,
     title: 'Manutenção de Iluminação Pública',
     description: 'Poste de luz queimado há mais de duas semanas em frente ao condomínio Bocaiúva.',
     category: 'complaint',
@@ -182,6 +203,7 @@ const defaultRequests: Request[] = [
   },
   {
     id: 'r3',
+    tenantId: MOCK_TENANT_ID,
     title: 'Reforma do Parque Infantil',
     description: 'Brinquedos danificados e falta de areia no parquinho da praça comunitária.',
     category: 'request',
@@ -205,6 +227,7 @@ const defaultRequests: Request[] = [
 const defaultCollaborators: Collaborator[] = [
   {
     id: 'col1',
+    tenantId: MOCK_TENANT_ID,
     name: 'Paulo Silva',
     email: 'paulo@gabinete.gov',
     phone: '(48) 99123-4567',
@@ -217,6 +240,7 @@ const defaultCollaborators: Collaborator[] = [
   },
   {
     id: 'col2',
+    tenantId: MOCK_TENANT_ID,
     name: 'Ana Souza',
     email: 'ana@gabinete.gov',
     phone: '(48) 98877-6655',
@@ -230,36 +254,36 @@ const defaultCollaborators: Collaborator[] = [
 ];
 
 const defaultBasicRegisters: BasicRegister[] = [
-  { id: 'b1', name: 'Partido Liberal (PL)', category: 'party', code: '22', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'b2', name: 'Partido dos Trabalhadores (PT)', category: 'party', code: '13', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'b3', name: 'Vereador', category: 'position', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'b4', name: 'Secretário Executivo', category: 'position', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'b5', name: 'Florianópolis', category: 'county', code: 'FLN', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+  { id: 'b1', tenantId: MOCK_TENANT_ID, name: 'Partido Liberal (PL)', category: 'party', code: '22', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'b2', tenantId: MOCK_TENANT_ID, name: 'Partido dos Trabalhadores (PT)', category: 'party', code: '13', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'b3', tenantId: MOCK_TENANT_ID, name: 'Vereador', category: 'position', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'b4', tenantId: MOCK_TENANT_ID, name: 'Secretário Executivo', category: 'position', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'b5', tenantId: MOCK_TENANT_ID, name: 'Florianópolis', category: 'county', code: 'FLN', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
 ];
 
 const defaultOrganizations: Organization[] = [
-  { id: 'o1', name: 'Associação de Moradores do Centro (AMOCENTRO)', type: 'association', cnpj: '12.345.678/0001-90', email: 'contato@amocentro.org', phone: '(48) 3222-1111', notes: 'Entidade muito ativa em prol da segurança local.', tags: ['Moradores', 'Centro'], contacts: [], status: 'partner', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+  { id: 'o1', tenantId: MOCK_TENANT_ID, name: 'Associação de Moradores do Centro (AMOCENTRO)', type: 'association', cnpj: '12.345.678/0001-90', email: 'contato@amocentro.org', phone: '(48) 3222-1111', notes: 'Entidade muito ativa em prol da segurança local.', tags: ['Moradores', 'Centro'], contacts: [], status: 'partner', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
 ];
 
 const defaultAppointments: Appointment[] = [
-  { id: 'ap1', title: 'Reunião de Alinhamento de Demandas', date: new Date(Date.now() + 1 * 24 * 3600 * 1000).toISOString().split('T')[0], time: '14:00', location: 'Gabinete Principal', description: 'Revisar os prazos de saneamento do Centro.', status: 'scheduled', type: 'meeting', priority: 'high', attendees: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'ap2', title: 'Visita à Associação Saco Grande', date: new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString().split('T')[0], time: '10:00', location: 'Saco Grande', description: 'Visitar praça comunitária e parquinho infantil.', status: 'scheduled', type: 'visit', priority: 'medium', attendees: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+  { id: 'ap1', tenantId: MOCK_TENANT_ID, title: 'Reunião de Alinhamento de Demandas', date: new Date(Date.now() + 1 * 24 * 3600 * 1000).toISOString().split('T')[0], time: '14:00', location: 'Gabinete Principal', description: 'Revisar os prazos de saneamento do Centro.', status: 'scheduled', type: 'meeting', priority: 'high', attendees: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'ap2', tenantId: MOCK_TENANT_ID, title: 'Visita à Associação Saco Grande', date: new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString().split('T')[0], time: '10:00', location: 'Saco Grande', description: 'Visitar praça comunitária e parquinho infantil.', status: 'scheduled', type: 'visit', priority: 'medium', attendees: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
 ];
 
 const defaultLandingPages: LandingPage[] = [
-  { id: 'l1', name: 'Apoio à Revitalização da Orla', slug: 'revitaliza-orla', status: 'published', description: 'Página de apoio para coleta de assinaturas e demandas do Centro.', lgpdText: '', confirmationTitle: '', confirmationMessage: '', confirmationButtonText: '', confirmationButtonColor: '', showShareButton: false, shareButtonText: '', shareButtonColor: '', fields: [], views: 342, submissions: 114, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+  { id: 'l1', tenantId: MOCK_TENANT_ID, name: 'Apoio à Revitalização da Orla', slug: 'revitaliza-orla', status: 'published', description: 'Página de apoio para coleta de assinaturas e demandas do Centro.', lgpdText: '', confirmationTitle: '', confirmationMessage: '', confirmationButtonText: '', confirmationButtonColor: '', showShareButton: false, shareButtonText: '', shareButtonColor: '', fields: [], views: 342, submissions: 114, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
 ];
 
 const defaultRelationships: Relationship[] = [
-  { id: 'rel1', type: 'political', citizenId: 'c1', relatedToId: 'c2', relatedToName: 'Ana Souza', notes: 'Paulo intermediou a comunicação com a AMOCENTRO.', strength: 'strong', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+  { id: 'rel1', tenantId: MOCK_TENANT_ID, type: 'political', citizenId: 'c1', relatedToId: 'c2', relatedToName: 'Ana Souza', notes: 'Paulo intermediou a comunicação com a AMOCENTRO.', strength: 'strong', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
 ];
 
 const defaultSignatures: Signature[] = [
-  { id: 's1', name: 'Emenda Parlamentar Obras 2026', role: 'Vereador', documentUrl: 'http://example.com/doc.pdf', imageUrl: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?auto=format&fit=crop&q=80&w=150', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+  { id: 's1', tenantId: MOCK_TENANT_ID, name: 'Emenda Parlamentar Obras 2026', role: 'Vereador', documentUrl: 'http://example.com/doc.pdf', imageUrl: 'https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?auto=format&fit=crop&q=80&w=150', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
 ];
 
 const defaultMobilizations: Mobilization[] = [
-  { id: 'm1', name: 'Mutirão de Limpeza Praia', type: 'event', startDate: new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString(), status: 'active', description: 'Mobilizar moradores para limpeza comunitária.', tags: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+  { id: 'm1', tenantId: MOCK_TENANT_ID, name: 'Mutirão de Limpeza Praia', type: 'event', startDate: new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString(), status: 'active', description: 'Mobilizar moradores para limpeza comunitária.', tags: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
 ];
 
 // --- FIM DA BASE DE DADOS MOCK ---
@@ -278,9 +302,13 @@ export function useDashboardStats() {
     setError(null);
 
     if (isMockMode()) {
-      // Carrega estatísticas do localStorage
-      const citizens = getInitialMockData<Citizen>('citizens', defaultCitizens);
-      const requests = getInitialMockData<Request>('requests', defaultRequests);
+      const tenantId = getCurrentTenantId();
+      let citizens = getInitialMockData<Citizen>('citizens', defaultCitizens);
+      let requests = getInitialMockData<Request>('requests', defaultRequests);
+      if (tenantId) {
+        citizens = citizens.filter(c => c.tenantId === tenantId);
+        requests = requests.filter(r => r.tenantId === tenantId);
+      }
 
       const openCount = requests.filter(r => r.status === 'open').length;
       const inProgressCount = requests.filter(r => r.status === 'in-progress').length;
@@ -312,6 +340,8 @@ export function useDashboardStats() {
     }
 
     try {
+      const tenantId = getCurrentTenantId();
+      const applyTenantFilter = (q: any) => tenantId ? q.eq('tenant_id', tenantId) : q;
       const [
         { count: cCount },
         { count: openCount },
@@ -319,11 +349,11 @@ export function useDashboardStats() {
         { count: resolvedCount },
         { data: requestsData },
       ] = await Promise.all([
-        supabase.from('citizens').select('*', { count: 'exact', head: true }),
-        supabase.from('requests').select('*', { count: 'exact', head: true }).eq('status', 'open'),
-        supabase.from('requests').select('*', { count: 'exact', head: true }).eq('status', 'in-progress'),
-        supabase.from('requests').select('*', { count: 'exact', head: true }).eq('status', 'resolved'),
-        supabase.from('requests').select('neighborhood, subject').limit(1000),
+        applyTenantFilter(supabase.from('citizens').select('*', { count: 'exact', head: true })),
+        applyTenantFilter(supabase.from('requests').select('*', { count: 'exact', head: true }).eq('status', 'open')),
+        applyTenantFilter(supabase.from('requests').select('*', { count: 'exact', head: true }).eq('status', 'in-progress')),
+        applyTenantFilter(supabase.from('requests').select('*', { count: 'exact', head: true }).eq('status', 'resolved')),
+        applyTenantFilter(supabase.from('requests').select('neighborhood, subject').limit(1000)),
       ]);
 
       const countBy = (field: 'neighborhood' | 'subject') => {
@@ -365,7 +395,9 @@ export function useCitizens(page = 1, pageSize = 10, search = '') {
     setLoading(true); setError(null);
 
     if (isMockMode()) {
+      const tenantId = getCurrentTenantId();
       let list = getInitialMockData<Citizen>('citizens', defaultCitizens);
+      if (tenantId) list = list.filter(c => c.tenantId === tenantId);
       if (search) {
         const query = search.toLowerCase();
         list = list.filter(c => 
@@ -392,7 +424,9 @@ export function useCitizens(page = 1, pageSize = 10, search = '') {
     }
 
     try {
+      const tenantId = getCurrentTenantId();
       let query = supabase.from('citizens').select('*', { count: 'exact' });
+      if (tenantId) query = query.eq('tenant_id', tenantId);
       if (search) query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,cpf.ilike.%${search}%`);
       const from = (page - 1) * pageSize;
       const { data, count, error: err } = await query.order('created_at', { ascending: false }).range(from, from + pageSize - 1);
@@ -406,10 +440,12 @@ export function useCitizens(page = 1, pageSize = 10, search = '') {
 
   const create = useCallback(async (c: any) => {
     if (isMockMode()) {
+      const tenantId = getCurrentTenantId();
       const list = getInitialMockData<Citizen>('citizens', defaultCitizens);
       const newCitizen: Citizen = {
         ...c,
         id: 'mock_c_' + Math.random().toString(36).substr(2, 9),
+        tenantId: c.tenantId || tenantId || undefined,
         tags: c.tags || [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -469,7 +505,9 @@ export function useOrganizations(page = 1, pageSize = 10, search = '') {
     setLoading(true); setError(null);
 
     if (isMockMode()) {
+      const tenantId = getCurrentTenantId();
       let list = getInitialMockData<Organization>('organizations', defaultOrganizations);
+      if (tenantId) list = list.filter(o => o.tenantId === tenantId);
       if (search) {
         list = list.filter(o => o.name?.toLowerCase().includes(search.toLowerCase()));
       }
@@ -487,7 +525,9 @@ export function useOrganizations(page = 1, pageSize = 10, search = '') {
     }
 
     try {
+      const tenantId = getCurrentTenantId();
       let query = supabase.from('organizations').select('*', { count: 'exact' });
+      if (tenantId) query = query.eq('tenant_id', tenantId);
       if (search) query = query.ilike('name', `%${search}%`);
       const from = (page - 1) * pageSize;
       const { data, count, error: err } = await query.range(from, from + pageSize - 1).order('name');
@@ -512,7 +552,49 @@ export function useOrganizations(page = 1, pageSize = 10, search = '') {
     await refresh();
   }, [refresh]);
 
-  return { ...result, loading, error, refresh, remove };
+  const create = useCallback(async (o: any) => {
+    if (isMockMode()) {
+      const tenantId = getCurrentTenantId();
+      const list = getInitialMockData<Organization>('organizations', defaultOrganizations);
+      const newOrg: Organization = {
+        ...o,
+        id: 'mock_o_' + Math.random().toString(36).substr(2, 9),
+        tenantId: o.tenantId || tenantId || undefined,
+        tags: o.tags || [],
+        contacts: o.contacts || [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      saveMockData('organizations', [newOrg, ...list]);
+      await refresh();
+      return newOrg;
+    }
+    const { data, error: e } = await supabase.from('organizations').insert([o]).select().single();
+    if (e) throw e;
+    await refresh();
+    return mapKeys(data);
+  }, [refresh]);
+
+  const update = useCallback(async (id: string, o: any) => {
+    if (isMockMode()) {
+      const list = getInitialMockData<Organization>('organizations', defaultOrganizations);
+      const updated = list.map(item => {
+        if (item.id === id) {
+          return { ...item, ...o, updatedAt: new Date().toISOString() };
+        }
+        return item;
+      });
+      saveMockData('organizations', updated);
+      await refresh();
+      return updated.find(item => item.id === id) as Organization;
+    }
+    const { data, error: e } = await supabase.from('organizations').update(o).eq('id', id).select().single();
+    if (e) throw e;
+    await refresh();
+    return mapKeys(data);
+  }, [refresh]);
+
+  return { ...result, loading, error, refresh, create, update, remove };
 }
 
 export function useAppointments(page = 1, pageSize = 10) {
@@ -524,7 +606,8 @@ export function useAppointments(page = 1, pageSize = 10) {
     setLoading(true); setError(null);
 
     if (isMockMode()) {
-      const list = getInitialMockData<Appointment>('appointments', defaultAppointments);
+      const tenantId = getCurrentTenantId();
+      const list = getInitialMockData<Appointment>('appointments', defaultAppointments).filter(a => !tenantId || a.tenantId === tenantId);
       const total = list.length;
       const from = (page - 1) * pageSize;
       setResult({
@@ -539,8 +622,11 @@ export function useAppointments(page = 1, pageSize = 10) {
     }
 
     try {
+      const tenantId = getCurrentTenantId();
       const from = (page - 1) * pageSize;
-      const { data, count, error: err } = await supabase.from('appointments').select('*', { count: 'exact' }).range(from, from + pageSize - 1).order('date', { ascending: false });
+      let aptQuery = supabase.from('appointments').select('*', { count: 'exact' });
+      if (tenantId) aptQuery = aptQuery.eq('tenant_id', tenantId);
+      const { data, count, error: err } = await aptQuery.range(from, from + pageSize - 1).order('date', { ascending: false });
       if (err) throw err;
       setResult({ data: (data || []).map(mapKeys), total: count || 0, page, pageSize, totalPages: Math.ceil((count || 0) / pageSize) });
     } catch (err) { setError(err instanceof Error ? err.message : 'Unknown error'); } finally { setLoading(false); }
@@ -550,10 +636,12 @@ export function useAppointments(page = 1, pageSize = 10) {
 
   const create = useCallback(async (a: any) => {
     if (isMockMode()) {
+      const tenantId = getCurrentTenantId();
       const list = getInitialMockData<Appointment>('appointments', defaultAppointments);
       const newAp: Appointment = {
         ...a,
         id: 'mock_ap_' + Math.random().toString(36).substr(2, 9),
+        tenantId: a.tenantId || tenantId || undefined,
         createdAt: new Date().toISOString()
       };
       saveMockData('appointments', [newAp, ...list]);
@@ -605,7 +693,8 @@ export function useLandingPages(page = 1, pageSize = 10) {
     setLoading(true); setError(null);
 
     if (isMockMode()) {
-      const list = getInitialMockData<LandingPage>('landing_pages', defaultLandingPages);
+      const tenantId = getCurrentTenantId();
+      const list = getInitialMockData<LandingPage>('landing_pages', defaultLandingPages).filter(l => !tenantId || l.tenantId === tenantId);
       const total = list.length;
       const from = (page - 1) * pageSize;
       setResult({
@@ -620,8 +709,11 @@ export function useLandingPages(page = 1, pageSize = 10) {
     }
 
     try {
+      const tenantId = getCurrentTenantId();
       const from = (page - 1) * pageSize;
-      const { data, count, error: err } = await supabase.from('landing_pages').select('*', { count: 'exact' }).range(from, from + pageSize - 1).order('created_at', { ascending: false });
+      let lpQuery = supabase.from('landing_pages').select('*', { count: 'exact' });
+      if (tenantId) lpQuery = lpQuery.eq('tenant_id', tenantId);
+      const { data, count, error: err } = await lpQuery.range(from, from + pageSize - 1).order('created_at', { ascending: false });
       if (err) throw err;
       setResult({ data: (data || []).map(mapKeys), total: count || 0, page, pageSize, totalPages: Math.ceil((count || 0) / pageSize) });
     } catch (err) { setError(err instanceof Error ? err.message : 'Unknown error'); } finally { setLoading(false); }
@@ -631,10 +723,12 @@ export function useLandingPages(page = 1, pageSize = 10) {
 
   const create = useCallback(async (l: any) => {
     if (isMockMode()) {
+      const tenantId = getCurrentTenantId();
       const list = getInitialMockData<LandingPage>('landing_pages', defaultLandingPages);
       const newLp: LandingPage = {
         ...l,
         id: 'mock_lp_' + Math.random().toString(36).substr(2, 9),
+        tenantId: l.tenantId || tenantId || undefined,
         views: 0,
         submissions: 0,
         createdAt: new Date().toISOString()
@@ -688,14 +782,18 @@ export function useCollaborators() {
     setLoading(true); setError(null);
 
     if (isMockMode()) {
-      const list = getInitialMockData<Collaborator>('collaborators', defaultCollaborators);
+      const tenantId = getCurrentTenantId();
+      const list = getInitialMockData<Collaborator>('collaborators', defaultCollaborators).filter(c => !tenantId || c.tenantId === tenantId);
       setData(list);
       setLoading(false);
       return;
     }
 
     try {
-      const { data: cols, error: err } = await supabase.from('collaborators').select('*').order('name');
+      const tenantId = getCurrentTenantId();
+      let colQuery = supabase.from('collaborators').select('*');
+      if (tenantId) colQuery = colQuery.eq('tenant_id', tenantId);
+      const { data: cols, error: err } = await colQuery.order('name');
       if (err) throw err;
       setData((cols || []).map(mapKeys));
     } catch (err) { setError(err instanceof Error ? err.message : 'Unknown error'); } finally { setLoading(false); }
@@ -705,10 +803,12 @@ export function useCollaborators() {
 
   const create = useCallback(async (c: any) => {
     if (isMockMode()) {
+      const tenantId = getCurrentTenantId();
       const list = getInitialMockData<Collaborator>('collaborators', defaultCollaborators);
       const newCol: Collaborator = {
         ...c,
         id: 'mock_col_' + Math.random().toString(36).substr(2, 9),
+        tenantId: c.tenantId || tenantId || undefined,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -761,7 +861,9 @@ export function useBasicRegisters(category = '') {
     setLoading(true); setError(null);
 
     if (isMockMode()) {
+      const tenantId = getCurrentTenantId();
       let list = getInitialMockData<BasicRegister>('basic_registers', defaultBasicRegisters);
+      if (tenantId) list = list.filter(r => r.tenantId === tenantId);
       if (category) {
         list = list.filter(r => r.category === category);
       }
@@ -771,7 +873,9 @@ export function useBasicRegisters(category = '') {
     }
 
     try {
+      const tenantId = getCurrentTenantId();
       let query = supabase.from('basic_registers').select('*').order('name');
+      if (tenantId) query = query.eq('tenant_id', tenantId);
       if (category) query = query.eq('category', category);
       const { data: regs, error: err } = await query;
       if (err) throw err;
@@ -783,10 +887,12 @@ export function useBasicRegisters(category = '') {
 
   const create = useCallback(async (b: any) => {
     if (isMockMode()) {
+      const tenantId = getCurrentTenantId();
       const list = getInitialMockData<BasicRegister>('basic_registers', defaultBasicRegisters);
       const newReg: BasicRegister = {
         ...b,
         id: 'mock_b_' + Math.random().toString(36).substr(2, 9),
+        tenantId: b.tenantId || tenantId || undefined,
         createdAt: new Date().toISOString()
       };
       saveMockData('basic_registers', [newReg, ...list]);
@@ -838,14 +944,18 @@ export function useMobilizations() {
     setLoading(true); setError(null);
 
     if (isMockMode()) {
-      const list = getInitialMockData<Mobilization>('mobilizations', defaultMobilizations);
+      const tenantId = getCurrentTenantId();
+      const list = getInitialMockData<Mobilization>('mobilizations', defaultMobilizations).filter(m => !tenantId || m.tenantId === tenantId);
       setData(list);
       setLoading(false);
       return;
     }
 
     try {
-      const { data: res, error: err } = await supabase.from('mobilizations').select('*').order('start_date');
+      const tenantId = getCurrentTenantId();
+      let mobQuery = supabase.from('mobilizations').select('*');
+      if (tenantId) mobQuery = mobQuery.eq('tenant_id', tenantId);
+      const { data: res, error: err } = await mobQuery.order('start_date');
       if (err) throw err;
       setData((res || []).map(mapKeys));
     } catch (err) { setError(err instanceof Error ? err.message : 'Unknown error'); } finally { setLoading(false); }
@@ -855,10 +965,12 @@ export function useMobilizations() {
 
   const create = useCallback(async (m: any) => {
     if (isMockMode()) {
+      const tenantId = getCurrentTenantId();
       const list = getInitialMockData<Mobilization>('mobilizations', defaultMobilizations);
       const newMob: Mobilization = {
         ...m,
         id: 'mock_m_' + Math.random().toString(36).substr(2, 9),
+        tenantId: m.tenantId || tenantId || undefined,
         createdAt: new Date().toISOString()
       };
       saveMockData('mobilizations', [newMob, ...list]);
@@ -910,7 +1022,8 @@ export function useRequests(page = 1, pageSize = 10) {
     setLoading(true); setError(null);
 
     if (isMockMode()) {
-      const list = getInitialMockData<Request>('requests', defaultRequests);
+      const tenantId = getCurrentTenantId();
+      const list = getInitialMockData<Request>('requests', defaultRequests).filter(r => !tenantId || r.tenantId === tenantId);
       const total = list.length;
       const from = (page - 1) * pageSize;
       setResult({
@@ -925,8 +1038,11 @@ export function useRequests(page = 1, pageSize = 10) {
     }
 
     try {
+      const tenantId = getCurrentTenantId();
       const from = (page - 1) * pageSize;
-      const { data, count, error: err } = await supabase.from('requests').select('*', { count: 'exact' }).range(from, from + pageSize - 1);
+      let reqQuery = supabase.from('requests').select('*', { count: 'exact' });
+      if (tenantId) reqQuery = reqQuery.eq('tenant_id', tenantId);
+      const { data, count, error: err } = await reqQuery.range(from, from + pageSize - 1);
       if (err) throw err;
       setResult({ data: (data || []).map(mapKeys), total: count || 0, page, pageSize, totalPages: Math.ceil((count || 0) / pageSize) });
     } catch (err) { setError(err instanceof Error ? err.message : 'Unknown error'); } finally { setLoading(false); }
@@ -936,10 +1052,12 @@ export function useRequests(page = 1, pageSize = 10) {
 
   const create = useCallback(async (r: any) => {
     if (isMockMode()) {
+      const tenantId = getCurrentTenantId();
       const list = getInitialMockData<Request>('requests', defaultRequests);
       const newReq: Request = {
         ...r,
         id: 'mock_r_' + Math.random().toString(36).substr(2, 9),
+        tenantId: r.tenantId || tenantId || undefined,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -992,14 +1110,18 @@ export function useAmendments() {
     setLoading(true); setError(null);
 
     if (isMockMode()) {
-      const list = getInitialMockData<Amendment>('amendments', []);
+      const tenantId = getCurrentTenantId();
+      const list = getInitialMockData<Amendment>('amendments', []).filter(a => !tenantId || a.tenantId === tenantId);
       setData(list);
       setLoading(false);
       return;
     }
 
     try {
-      const { data: res, error: err } = await supabase.from('amendments').select('*').order('year', { ascending: false });
+      const tenantId = getCurrentTenantId();
+      let amQuery = supabase.from('amendments').select('*');
+      if (tenantId) amQuery = amQuery.eq('tenant_id', tenantId);
+      const { data: res, error: err } = await amQuery.order('year', { ascending: false });
       if (err) throw err;
       setData((res || []).map(mapKeys));
     } catch (err) { setError(err instanceof Error ? err.message : 'Unknown error'); } finally { setLoading(false); }
@@ -1009,10 +1131,12 @@ export function useAmendments() {
 
   const create = useCallback(async (a: any) => {
     if (isMockMode()) {
+      const tenantId = getCurrentTenantId();
       const list = getInitialMockData<Amendment>('amendments', []);
       const newAm: Amendment = {
         ...a,
         id: 'mock_am_' + Math.random().toString(36).substr(2, 9),
+        tenantId: a.tenantId || tenantId || undefined,
         createdAt: new Date().toISOString()
       };
       saveMockData('amendments', [newAm, ...list]);
@@ -1064,14 +1188,18 @@ export function useWhatsAppCampaigns() {
     setLoading(true); setError(null);
 
     if (isMockMode()) {
-      const list = getInitialMockData<WhatsAppCampaign>('whatsapp_campaigns', []);
+      const tenantId = getCurrentTenantId();
+      const list = getInitialMockData<WhatsAppCampaign>('whatsapp_campaigns', []).filter(w => !tenantId || w.tenantId === tenantId);
       setData(list);
       setLoading(false);
       return;
     }
 
     try {
-      const { data: res, error: err } = await supabase.from('whatsapp_campaigns').select('*').order('created_at', { ascending: false });
+      const tenantId = getCurrentTenantId();
+      let waQuery = supabase.from('whatsapp_campaigns').select('*');
+      if (tenantId) waQuery = waQuery.eq('tenant_id', tenantId);
+      const { data: res, error: err } = await waQuery.order('created_at', { ascending: false });
       if (err) throw err;
       setData((res || []).map(mapKeys));
     } catch (err) { setError(err instanceof Error ? err.message : 'Unknown error'); } finally { setLoading(false); }
@@ -1090,14 +1218,18 @@ export function useEmailCampaigns() {
     setLoading(true); setError(null);
 
     if (isMockMode()) {
-      const list = getInitialMockData<EmailCampaign>('email_campaigns', []);
+      const tenantId = getCurrentTenantId();
+      const list = getInitialMockData<EmailCampaign>('email_campaigns', []).filter(e => !tenantId || e.tenantId === tenantId);
       setData(list);
       setLoading(false);
       return;
     }
 
     try {
-      const { data: res, error: err } = await supabase.from('email_campaigns').select('*').order('created_at', { ascending: false });
+      const tenantId = getCurrentTenantId();
+      let ecQuery = supabase.from('email_campaigns').select('*');
+      if (tenantId) ecQuery = ecQuery.eq('tenant_id', tenantId);
+      const { data: res, error: err } = await ecQuery.order('created_at', { ascending: false });
       if (err) throw err;
       setData((res || []).map(mapKeys));
     } catch (err) { setError(err instanceof Error ? err.message : 'Unknown error'); } finally { setLoading(false); }
@@ -1116,14 +1248,18 @@ export function useRelationships() {
     setLoading(true); setError(null);
 
     if (isMockMode()) {
-      const list = getInitialMockData<Relationship>('relationships', defaultRelationships);
+      const tenantId = getCurrentTenantId();
+      const list = getInitialMockData<Relationship>('relationships', defaultRelationships).filter(r => !tenantId || r.tenantId === tenantId);
       setData(list);
       setLoading(false);
       return;
     }
 
     try {
-      const { data: res, error: err } = await supabase.from('relationships').select('*').order('created_at', { ascending: false });
+      const tenantId = getCurrentTenantId();
+      let relQuery = supabase.from('relationships').select('*');
+      if (tenantId) relQuery = relQuery.eq('tenant_id', tenantId);
+      const { data: res, error: err } = await relQuery.order('created_at', { ascending: false });
       if (err) throw err;
       setData((res || []).map(mapKeys));
     } catch (err) { setError(err instanceof Error ? err.message : 'Unknown error'); } finally { setLoading(false); }
@@ -1133,10 +1269,12 @@ export function useRelationships() {
 
   const create = useCallback(async (r: any) => {
     if (isMockMode()) {
+      const tenantId = getCurrentTenantId();
       const list = getInitialMockData<Relationship>('relationships', defaultRelationships);
       const newRel: Relationship = {
         ...r,
         id: 'mock_rel_' + Math.random().toString(36).substr(2, 9),
+        tenantId: r.tenantId || tenantId || undefined,
         createdAt: new Date().toISOString()
       };
       saveMockData('relationships', [newRel, ...list]);
@@ -1188,14 +1326,18 @@ export function useSignatures() {
     setLoading(true); setError(null);
 
     if (isMockMode()) {
-      const list = getInitialMockData<Signature>('signatures', defaultSignatures);
+      const tenantId = getCurrentTenantId();
+      const list = getInitialMockData<Signature>('signatures', defaultSignatures).filter(s => !tenantId || s.tenantId === tenantId);
       setData(list);
       setLoading(false);
       return;
     }
 
     try {
-      const { data: res, error: err } = await supabase.from('signatures').select('*').order('created_at', { ascending: false });
+      const tenantId = getCurrentTenantId();
+      let sigQuery = supabase.from('signatures').select('*');
+      if (tenantId) sigQuery = sigQuery.eq('tenant_id', tenantId);
+      const { data: res, error: err } = await sigQuery.order('created_at', { ascending: false });
       if (err) throw err;
       setData((res || []).map(mapKeys));
     } catch (err) { setError(err instanceof Error ? err.message : 'Unknown error'); } finally { setLoading(false); }
@@ -1205,10 +1347,12 @@ export function useSignatures() {
 
   const create = useCallback(async (s: any) => {
     if (isMockMode()) {
+      const tenantId = getCurrentTenantId();
       const list = getInitialMockData<Signature>('signatures', defaultSignatures);
       const newSig: Signature = {
         ...s,
         id: 'mock_sig_' + Math.random().toString(36).substr(2, 9),
+        tenantId: s.tenantId || tenantId || undefined,
         createdAt: new Date().toISOString()
       };
       saveMockData('signatures', [newSig, ...list]);
@@ -1249,4 +1393,515 @@ export function useSignatures() {
   }, [refresh]);
 
   return { data, loading, error, refresh, create, update, remove };
+}
+
+// ===========================
+// HOOKS SAAS (MULTI-TENANT)
+// ===========================
+
+const defaultPlans: Plan[] = [
+  {
+    id: 'plan_basic',
+    name: 'Básico',
+    description: 'Para vereadores com orçamento reduzido',
+    price: 97,
+    currency: 'BRL',
+    interval: 'monthly',
+    features: [
+      'Até 500 cidadãos cadastrados',
+      'Até 100 demandas mensais',
+      'Até 3 colaboradores',
+      'Dashboard básico',
+      'WhatsApp integrado',
+      'Suporte por email',
+    ],
+    limits: {
+      maxCitizens: 500, maxRequests: 100, maxOrganizations: 20,
+      maxAppointments: 50, maxCollaborators: 3, maxMobilizations: 10,
+      maxLandingPages: 2, maxAmendments: 20, maxWhatsAppCampaigns: 5,
+      maxEmailCampaigns: 5, maxTeamMembers: 3, maxStorageMb: 500,
+      hasWhatsApp: true, hasAI: false, hasReports: true, hasApi: false, hasPrioritySupport: false,
+    },
+    active: true, createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z',
+  },
+  {
+    id: 'plan_pro',
+    name: 'Profissional',
+    description: 'Para deputados estaduais com equipe média',
+    price: 197,
+    currency: 'BRL',
+    interval: 'monthly',
+    features: [
+      'Até 5.000 cidadãos cadastrados',
+      'Até 500 demandas mensais',
+      'Até 10 colaboradores',
+      'Dashboard completo',
+      'WhatsApp + IA integrados',
+      'Landing pages ilimitadas',
+      'Relatórios avançados',
+      'Suporte prioritário',
+    ],
+    limits: {
+      maxCitizens: 5000, maxRequests: 500, maxOrganizations: 100,
+      maxAppointments: 200, maxCollaborators: 10, maxMobilizations: 50,
+      maxLandingPages: 10, maxAmendments: 100, maxWhatsAppCampaigns: 20,
+      maxEmailCampaigns: 20, maxTeamMembers: 10, maxStorageMb: 2000,
+      hasWhatsApp: true, hasAI: true, hasReports: true, hasApi: true, hasPrioritySupport: true,
+    },
+    active: true, createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z',
+  },
+  {
+    id: 'plan_enterprise',
+    name: 'Enterprise',
+    description: 'Para deputados federais/senadores com equipe grande',
+    price: 497,
+    currency: 'BRL',
+    interval: 'monthly',
+    features: [
+      'Cidadãos ilimitados',
+      'Demandas ilimitadas',
+      'Colaboradores ilimitados',
+      'Todos os recursos',
+      'API pública',
+      'Domínio personalizado',
+      'Gerente de sucesso dedicado',
+      'SLA 24h',
+    ],
+    limits: {
+      maxCitizens: 999999, maxRequests: 999999, maxOrganizations: 999999,
+      maxAppointments: 999999, maxCollaborators: 999999, maxMobilizations: 999999,
+      maxLandingPages: 999999, maxAmendments: 999999, maxWhatsAppCampaigns: 999999,
+      maxEmailCampaigns: 999999, maxTeamMembers: 999999, maxStorageMb: 50000,
+      hasWhatsApp: true, hasAI: true, hasReports: true, hasApi: true, hasPrioritySupport: true,
+    },
+    active: true, createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-01T00:00:00Z',
+  },
+];
+
+const defaultTenants: Tenant[] = [
+  {
+    id: 'tenant_demo',
+    name: 'Gabinete Demo',
+    slug: 'demo',
+    planId: 'plan_pro',
+    email: 'demo@gabinete360.com.br',
+    phone: '(48) 99999-0001',
+    status: 'active',
+    settings: {
+      timezone: 'America/Sao_Paulo', locale: 'pt-BR', theme: 'light',
+      businessHours: [
+        { day: 1, open: '08:00', close: '18:00', enabled: true },
+        { day: 2, open: '08:00', close: '18:00', enabled: true },
+        { day: 3, open: '08:00', close: '18:00', enabled: true },
+        { day: 4, open: '08:00', close: '18:00', enabled: true },
+        { day: 5, open: '08:00', close: '17:00', enabled: true },
+        { day: 6, open: '', close: '', enabled: false },
+        { day: 0, open: '', close: '', enabled: false },
+      ],
+      primaryColor: '#2563eb',
+    },
+    assignedUsers: 3,
+    createdAt: '2024-06-01T00:00:00Z', updatedAt: '2024-06-01T00:00:00Z',
+  },
+  {
+    id: 'tenant_vereador',
+    name: 'Vereador Carlos Santos',
+    slug: 'carlos-santos',
+    planId: 'plan_basic',
+    email: 'carlos@gabinete360.com.br',
+    status: 'active',
+    settings: {
+      timezone: 'America/Sao_Paulo', locale: 'pt-BR', theme: 'light',
+      businessHours: [
+        { day: 1, open: '09:00', close: '17:00', enabled: true },
+        { day: 2, open: '09:00', close: '17:00', enabled: true },
+        { day: 3, open: '09:00', close: '17:00', enabled: true },
+        { day: 4, open: '09:00', close: '17:00', enabled: true },
+        { day: 5, open: '09:00', close: '16:00', enabled: true },
+        { day: 6, open: '', close: '', enabled: false },
+        { day: 0, open: '', close: '', enabled: false },
+      ],
+      primaryColor: '#059669',
+    },
+    assignedUsers: 1,
+    createdAt: '2024-07-15T00:00:00Z', updatedAt: '2024-07-15T00:00:00Z',
+  },
+  {
+    id: 'tenant_deputado',
+    name: 'Deputada Maria Oliveira',
+    slug: 'maria-oliveira',
+    planId: 'plan_enterprise',
+    email: 'maria@gabinete360.com.br',
+    phone: '(48) 99999-0002',
+    status: 'active',
+    settings: {
+      timezone: 'America/Sao_Paulo', locale: 'pt-BR', theme: 'light',
+      businessHours: [
+        { day: 1, open: '08:00', close: '19:00', enabled: true },
+        { day: 2, open: '08:00', close: '19:00', enabled: true },
+        { day: 3, open: '08:00', close: '19:00', enabled: true },
+        { day: 4, open: '08:00', close: '19:00', enabled: true },
+        { day: 5, open: '08:00', close: '18:00', enabled: true },
+        { day: 6, open: '09:00', close: '12:00', enabled: true },
+        { day: 0, open: '', close: '', enabled: false },
+      ],
+      primaryColor: '#7c3aed',
+    },
+    assignedUsers: 8,
+    createdAt: '2024-03-01T00:00:00Z', updatedAt: '2024-03-01T00:00:00Z',
+  },
+];
+
+const defaultSupportTickets: SupportTicket[] = [
+  {
+    id: 'ticket_1',
+    tenantId: 'tenant_demo',
+    tenantName: 'Gabinete Demo',
+    subject: 'Problema ao enviar campanha WhatsApp',
+    message: 'Estou tentando enviar uma campanha de WhatsApp mas aparece erro de conexão.',
+    category: 'bug',
+    priority: 'high',
+    status: 'in_progress',
+    messages: [
+      {
+        id: 'msg_1', ticketId: 'ticket_1', authorId: 'user_demo', authorName: 'Admin Demo',
+        authorType: 'tenant', message: 'Estou tentando enviar uma campanha de WhatsApp mas aparece erro de conexão.', createdAt: '2024-08-10T14:30:00Z',
+      },
+      {
+        id: 'msg_2', ticketId: 'ticket_1', authorId: 'support_1', authorName: 'Suporte Técnico',
+        authorType: 'support', message: 'Olá! Verificamos que seu dispositivo WhatsApp foi desconectado. Pode tentar reconectar em Conexões?', createdAt: '2024-08-10T15:00:00Z',
+      },
+    ],
+    assignedToName: 'Suporte Técnico',
+    createdBy: 'user_demo',
+    createdByName: 'Admin Demo',
+    createdAt: '2024-08-10T14:30:00Z', updatedAt: '2024-08-10T15:00:00Z',
+  },
+  {
+    id: 'ticket_2',
+    tenantId: 'tenant_vereador',
+    tenantName: 'Vereador Carlos Santos',
+    subject: 'Dúvida sobre exportação de relatórios',
+    message: 'Como faço para exportar a lista de cidadãos em Excel?',
+    category: 'question',
+    priority: 'low',
+    status: 'open',
+    messages: [
+      {
+        id: 'msg_3', ticketId: 'ticket_2', authorId: 'user_carlos', authorName: 'Carlos Santos',
+        authorType: 'tenant', message: 'Como faço para exportar a lista de cidadãos em Excel?', createdAt: '2024-08-11T09:00:00Z',
+      },
+    ],
+    createdBy: 'user_carlos',
+    createdByName: 'Carlos Santos',
+    createdAt: '2024-08-11T09:00:00Z', updatedAt: '2024-08-11T09:00:00Z',
+  },
+];
+
+// --- HOOK: Tenants (Super Admin) ---
+export function useTenants(page = 1, pageSize = 20) {
+  const [data, setData] = useState<Tenant[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true); setError(null);
+    if (isMockMode()) {
+      let list = getInitialMockData<Tenant>('tenants', defaultTenants);
+      const totalItems = list.length;
+      const from = (page - 1) * pageSize;
+      setData(list.slice(from, from + pageSize));
+      setTotal(totalItems);
+      setLoading(false);
+      return;
+    }
+    try {
+      const from = (page - 1) * pageSize;
+      const { data: res, count, error: err } = await supabase.from('tenants').select('*', { count: 'exact' }).range(from, from + pageSize - 1).order('created_at', { ascending: false });
+      if (err) throw err;
+      setData((res || []).map(mapKeys));
+      setTotal(count || 0);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Unknown error'); } finally { setLoading(false); }
+  }, [page, pageSize]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const create = useCallback(async (t: any) => {
+    if (isMockMode()) {
+      const list = getInitialMockData<Tenant>('tenants', defaultTenants);
+      const newTenant: Tenant = { ...t, id: 'tenant_' + Math.random().toString(36).substr(2, 9), assignedUsers: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      saveMockData('tenants', [newTenant, ...list]);
+      await refresh();
+      return newTenant;
+    }
+    const { data, error: e } = await supabase.from('tenants').insert([t]).select().single();
+    if (e) throw e;
+    await refresh();
+    return mapKeys(data);
+  }, [refresh]);
+
+  const update = useCallback(async (id: string, t: any) => {
+    if (isMockMode()) {
+      const list = getInitialMockData<Tenant>('tenants', defaultTenants);
+      const updated = list.map(item => (item.id === id ? { ...item, ...t, updatedAt: new Date().toISOString() } : item));
+      saveMockData('tenants', updated);
+      await refresh();
+      return updated.find(item => item.id === id) as Tenant;
+    }
+    const { data, error: e } = await supabase.from('tenants').update(t).eq('id', id).select().single();
+    if (e) throw e;
+    await refresh();
+    return mapKeys(data);
+  }, [refresh]);
+
+  const remove = useCallback(async (id: string) => {
+    if (isMockMode()) {
+      const list = getInitialMockData<Tenant>('tenants', defaultTenants);
+      saveMockData('tenants', list.filter(item => item.id !== id));
+      await refresh();
+      return;
+    }
+    const { error: e } = await supabase.from('tenants').delete().eq('id', id);
+    if (e) throw e;
+    await refresh();
+  }, [refresh]);
+
+  return { data, total, loading, error, refresh, create, update, remove };
+}
+
+// --- HOOK: Plans (Super Admin) ---
+export function usePlans() {
+  const [data, setData] = useState<Plan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true); setError(null);
+    if (isMockMode()) {
+      setData(getInitialMockData<Plan>('plans', defaultPlans));
+      setLoading(false);
+      return;
+    }
+    try {
+      const { data: res, error: err } = await supabase.from('plans').select('*').order('price');
+      if (err) throw err;
+      setData((res || []).map(mapKeys));
+    } catch (err) { setError(err instanceof Error ? err.message : 'Unknown error'); } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const create = useCallback(async (p: any) => {
+    if (isMockMode()) {
+      const list = getInitialMockData<Plan>('plans', defaultPlans);
+      const newPlan: Plan = { ...p, id: 'plan_' + Math.random().toString(36).substr(2, 9), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      saveMockData('plans', [newPlan, ...list]);
+      await refresh();
+      return newPlan;
+    }
+    const { data, error: e } = await supabase.from('plans').insert([p]).select().single();
+    if (e) throw e;
+    await refresh();
+    return mapKeys(data);
+  }, [refresh]);
+
+  const update = useCallback(async (id: string, p: any) => {
+    if (isMockMode()) {
+      const list = getInitialMockData<Plan>('plans', defaultPlans);
+      const updated = list.map(item => (item.id === id ? { ...item, ...p, updatedAt: new Date().toISOString() } : item));
+      saveMockData('plans', updated);
+      await refresh();
+      return updated.find(item => item.id === id) as Plan;
+    }
+    const { data, error: e } = await supabase.from('plans').update(p).eq('id', id).select().single();
+    if (e) throw e;
+    await refresh();
+    return mapKeys(data);
+  }, [refresh]);
+
+  const remove = useCallback(async (id: string) => {
+    if (isMockMode()) {
+      const list = getInitialMockData<Plan>('plans', defaultPlans);
+      saveMockData('plans', list.filter(item => item.id !== id));
+      await refresh();
+      return;
+    }
+    const { error: e } = await supabase.from('plans').delete().eq('id', id);
+    if (e) throw e;
+    await refresh();
+  }, [refresh]);
+
+  return { data, loading, error, refresh, create, update, remove };
+}
+
+// --- HOOK: Support Tickets ---
+export function useSupportTickets(page = 1, pageSize = 20, tenantFilter = '') {
+  const [data, setData] = useState<SupportTicket[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true); setError(null);
+    if (isMockMode()) {
+      let list = getInitialMockData<SupportTicket>('support_tickets', defaultSupportTickets);
+      if (tenantFilter) list = list.filter(t => t.tenantId === tenantFilter);
+      const totalItems = list.length;
+      const from = (page - 1) * pageSize;
+      setData(list.slice(from, from + pageSize));
+      setTotal(totalItems);
+      setLoading(false);
+      return;
+    }
+    try {
+      let query = supabase.from('support_tickets').select('*', { count: 'exact' });
+      if (tenantFilter) query = query.eq('tenant_id', tenantFilter);
+      const from = (page - 1) * pageSize;
+      const { data: res, count, error: err } = await query.range(from, from + pageSize - 1).order('created_at', { ascending: false });
+      if (err) throw err;
+      setData((res || []).map(mapKeys));
+      setTotal(count || 0);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Unknown error'); } finally { setLoading(false); }
+  }, [page, pageSize, tenantFilter]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const create = useCallback(async (t: any) => {
+    if (isMockMode()) {
+      const list = getInitialMockData<SupportTicket>('support_tickets', defaultSupportTickets);
+      const newTicket: SupportTicket = {
+        ...t, id: 'ticket_' + Math.random().toString(36).substr(2, 9),
+        messages: [{ id: 'msg_' + Math.random().toString(36).substr(2, 9), ticketId: '', authorId: t.createdBy, authorName: t.createdByName || '', authorType: 'tenant', message: t.message, createdAt: new Date().toISOString() }],
+        createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      };
+      saveMockData('support_tickets', [newTicket, ...list]);
+      await refresh();
+      return newTicket;
+    }
+    const { data, error: e } = await supabase.from('support_tickets').insert([t]).select().single();
+    if (e) throw e;
+    await refresh();
+    return mapKeys(data);
+  }, [refresh]);
+
+  const addMessage = useCallback(async (ticketId: string, msg: SupportMessage) => {
+    if (isMockMode()) {
+      const list = getInitialMockData<SupportTicket>('support_tickets', defaultSupportTickets);
+      const updated = list.map(item => {
+        if (item.id !== ticketId) return item;
+        return { ...item, messages: [...(item.messages || []), msg], updatedAt: new Date().toISOString() };
+      });
+      saveMockData('support_tickets', updated);
+      await refresh();
+      return;
+    }
+    const { error: e } = await supabase.from('support_ticket_messages').insert([msg]);
+    if (e) throw e;
+    await refresh();
+  }, [refresh]);
+
+  const updateStatus = useCallback(async (id: string, status: SupportTicket['status']) => {
+    if (isMockMode()) {
+      const list = getInitialMockData<SupportTicket>('support_tickets', defaultSupportTickets);
+      const updated = list.map(item => (item.id === id ? { ...item, status, updatedAt: new Date().toISOString() } : item));
+      saveMockData('support_tickets', updated);
+      await refresh();
+      return;
+    }
+    const { error: e } = await supabase.from('support_tickets').update({ status }).eq('id', id);
+    if (e) throw e;
+    await refresh();
+  }, [refresh]);
+
+  const remove = useCallback(async (id: string) => {
+    if (isMockMode()) {
+      const list = getInitialMockData<SupportTicket>('support_tickets', defaultSupportTickets);
+      saveMockData('support_tickets', list.filter(item => item.id !== id));
+      await refresh();
+      return;
+    }
+    const { error: e } = await supabase.from('support_tickets').delete().eq('id', id);
+    if (e) throw e;
+    await refresh();
+  }, [refresh]);
+
+  return { data, total, loading, error, refresh, create, addMessage, updateStatus, remove };
+}
+
+// --- HOOK: Super Admin Stats ---
+export function useSuperAdminStats() {
+  const [stats, setStats] = useState<SuperAdminStats>({
+    totalTenants: 0, activeTenants: 0, trialTenants: 0, suspendedTenants: 0,
+    totalPlans: 0, openTickets: 0, totalUsers: 0, totalStorageUsed: 0,
+    monthlyRevenue: 0, revenueGrowth: 0, recentTenants: [], recentTickets: [],
+    topPlans: [],
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true); setError(null);
+    if (isMockMode()) {
+      const tenants = getInitialMockData<Tenant>('tenants', defaultTenants);
+      const plans = getInitialMockData<Plan>('plans', defaultPlans);
+      const tickets = getInitialMockData<SupportTicket>('support_tickets', defaultSupportTickets);
+      const activeTenants = tenants.filter(t => t.status === 'active');
+      const planCounts: Record<string, { count: number; planName: string; price: number }> = {};
+      for (const t of tenants) {
+        const plan = plans.find(p => p.id === t.planId);
+        const key = t.planId;
+        if (!planCounts[key]) planCounts[key] = { count: 0, planName: plan?.name || 'Unknown', price: plan?.price || 0 };
+        planCounts[key].count++;
+      }
+      setStats({
+        totalTenants: tenants.length,
+        activeTenants: activeTenants.length,
+        trialTenants: tenants.filter(t => t.status === 'trial').length,
+        suspendedTenants: tenants.filter(t => t.status === 'suspended').length,
+        totalPlans: plans.length,
+        openTickets: tickets.filter(t => t.status === 'open' || t.status === 'in_progress').length,
+        totalUsers: tenants.reduce((sum, t) => sum + t.assignedUsers, 0),
+        totalStorageUsed: 0,
+        monthlyRevenue: Object.values(planCounts).reduce((sum, p) => sum + p.count * p.price, 0),
+        revenueGrowth: 12.5,
+        recentTenants: tenants.slice(0, 5),
+        recentTickets: tickets.slice(0, 5).map(t => ({ ...t, tenantName: tenants.find(ten => ten.id === t.tenantId)?.name || t.tenantName || '' })),
+        topPlans: Object.entries(planCounts).map(([planId, info]) => ({ planName: info.planName, count: info.count, revenue: info.count * info.price })),
+      });
+      setLoading(false);
+      return;
+    }
+    try {
+      const [tenantsRes, plansRes, ticketsRes] = await Promise.all([
+        supabase.from('tenants').select('id, status, plan_id, assigned_users, created_at'),
+        supabase.from('plans').select('id, name, price, active'),
+        supabase.from('support_tickets').select('id, tenant_id, subject, status, priority, created_at').eq('status', 'open').or('status.eq.in_progress'),
+      ]);
+      const tenants = (tenantsRes.data || []).map(mapKeys);
+      const plans = (plansRes.data || []).map(mapKeys);
+      const tickets = (ticketsRes.data || []).map(mapKeys);
+      const activeTenants = tenants.filter((t: any) => t.status === 'active');
+      const planCounts: Record<string, { count: number; planName: string; price: number }> = {};
+      for (const t of tenants) {
+        const plan = plans.find((p: any) => p.id === t.planId);
+        const key = t.planId;
+        if (!planCounts[key]) planCounts[key] = { count: 0, planName: plan?.name || 'Unknown', price: plan?.price || 0 };
+        planCounts[key].count++;
+      }
+      setStats({
+        totalTenants: tenants.length, activeTenants: activeTenants.length,
+        trialTenants: tenants.filter((t: any) => t.status === 'trial').length,
+        suspendedTenants: tenants.filter((t: any) => t.status === 'suspended').length,
+        totalPlans: plans.filter((p: any) => p.active).length, openTickets: tickets.length,
+        totalUsers: tenants.reduce((sum: number, t: any) => sum + (t.assignedUsers || 0), 0),
+        totalStorageUsed: 0, monthlyRevenue: Object.values(planCounts).reduce((sum: number, p: any) => sum + p.count * p.price, 0),
+        revenueGrowth: 12.5, recentTenants: tenants.slice(0, 5), recentTickets: tickets.slice(0, 5),
+        topPlans: Object.entries(planCounts).map(([planId, info]: any) => ({ planName: info.planName, count: info.count, revenue: info.count * info.price })),
+      });
+    } catch (err) { setError(err instanceof Error ? err.message : 'Unknown error'); } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+  return { stats, loading, error, refresh };
 }

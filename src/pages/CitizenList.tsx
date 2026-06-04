@@ -169,6 +169,7 @@ export default function CitizenList() {
     if (saving) return;
     setFormError('');
     setEditingCitizenId(null);
+    setShowCreateModal(false);
   };
 
   const handleCepChange = async (cepValue: string) => {

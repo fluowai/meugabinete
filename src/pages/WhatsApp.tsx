@@ -144,7 +144,6 @@ const tabConfig = [
   { id: 'direct' as const, label: 'Conversas', icon: MessageSquare },
   { id: 'group' as const, label: 'Grupos', icon: Users },
   { id: 'messages' as const, label: 'Mensagens', icon: FileText },
-  { id: 'connections' as const, label: 'Conexoes', icon: Wifi },
 ];
 
 function Avatar({
@@ -174,23 +173,18 @@ function Avatar({
   );
 }
 
-export default function WhatsAppHub({ defaultTab = 'direct' }: { defaultTab?: WhatsAppTab }) {
-  const [activeTab, setActiveTab] = useState<WhatsAppTab>(defaultTab);
-
-  useEffect(() => {
-    setActiveTab(defaultTab);
-  }, [defaultTab]);
-
+export default function WhatsAppHub() {
+  const [activeTab, setActiveTab] = useState<WhatsAppTab>('direct');
   const [search, setSearch] = useState('');
   const [chats, setChats] = useState<WhatsAppChat[]>([]);
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
   const [allMessages, setAllMessages] = useState<WhatsAppMessage[]>([]);
   const [participants, setParticipants] = useState<WhatsAppParticipant[]>([]);
-  const [connections, setConnections] = useState<WhatsAppConnection[]>([]);
   const [selectedChat, setSelectedChat] = useState<WhatsAppChat | null>(null);
-  const [qrCode, setQrCode] = useState('');
   const [loadingChats, setLoadingChats] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [connections, setConnections] = useState<WhatsAppConnection[]>([]);
+  const [qrCode, setQrCode] = useState('');
   const [loadingConnections, setLoadingConnections] = useState(false);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
   const [creatingRequestId, setCreatingRequestId] = useState<string | null>(null);
@@ -281,10 +275,8 @@ export default function WhatsAppHub({ defaultTab = 'direct' }: { defaultTab?: Wh
       fetchChats(activeTab);
     } else if (activeTab === 'messages') {
       fetchAllMessages();
-    } else {
-      fetchConnections();
     }
-  }, [activeTab, fetchAllMessages, fetchChats, fetchConnections]);
+  }, [activeTab, fetchAllMessages, fetchChats]);
 
   useEffect(() => {
     fetchMessages(selectedChat);
@@ -325,7 +317,6 @@ export default function WhatsAppHub({ defaultTab = 'direct' }: { defaultTab?: Wh
   const refreshCurrent = () => {
     if (activeTab === 'direct' || activeTab === 'group') fetchChats(activeTab);
     if (activeTab === 'messages') fetchAllMessages();
-    if (activeTab === 'connections') fetchConnections();
   };
 
   const loadQR = async (instanceKey: string) => {
@@ -591,111 +582,6 @@ export default function WhatsAppHub({ defaultTab = 'direct' }: { defaultTab?: Wh
             {!loadingMessages && filteredMessages.length === 0 && <div className="p-8 text-center text-sm text-slate-500">Nenhuma mensagem encontrada.</div>}
             {filteredMessages.map(renderMessage)}
           </div>
-        </section>
-      )}
-
-      {activeTab === 'connections' && (
-        <section className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[1fr_420px]">
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <div>
-                <h2 className="font-bold text-slate-900">Instancias</h2>
-                <p className="text-xs text-slate-500">Status das conexoes whatsmeow.</p>
-              </div>
-              <button
-                onClick={syncGroups}
-                disabled={syncingGroups}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-              >
-                <RefreshCcw className={cn('h-4 w-4', syncingGroups && 'animate-spin')} />
-                Sincronizar grupos
-              </button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px]">
-                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
-                  <tr>
-                    <th className="px-5 py-3 font-semibold">Instancia</th>
-                    <th className="px-5 py-3 font-semibold">Status</th>
-                    <th className="px-5 py-3 font-semibold">Numero</th>
-                    <th className="px-5 py-3 font-semibold">Pushname</th>
-                    <th className="px-5 py-3 text-right font-semibold">Acoes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loadingConnections && (
-                    <tr>
-                      <td colSpan={5} className="px-5 py-10 text-center text-sm text-slate-500">Carregando conexoes...</td>
-                    </tr>
-                  )}
-                  {!loadingConnections && connections.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="px-5 py-10 text-center text-sm text-slate-500">Nenhuma instancia encontrada.</td>
-                    </tr>
-                  )}
-                  {connections.map((connection) => (
-                    <tr key={connection.instance_key} className="border-t border-slate-100">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-                            <Smartphone className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <div className="font-semibold text-slate-900">{connection.name}</div>
-                            <div className="text-xs text-slate-500">{connection.provider || 'whatsmeow'}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span
-                          className={cn(
-                            'rounded-full px-2.5 py-1 text-xs font-bold',
-                            connection.connected ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700',
-                          )}
-                        >
-                          {connection.connected ? 'Conectada' : connection.status}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-sm text-slate-600">{formatPhone(connection.phone) || '-'}</td>
-                      <td className="px-5 py-4 text-sm text-slate-600">{connection.push_name || '-'}</td>
-                      <td className="px-5 py-4 text-right">
-                        <button
-                          onClick={() => loadQR(connection.instance_key)}
-                          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                        >
-                          <QrCode className="h-4 w-4" />
-                          QR
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <aside className="flex min-h-[320px] flex-col rounded-xl border border-slate-200 bg-white">
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className="font-bold text-slate-900">QR da instancia</h2>
-              <p className="text-xs text-slate-500">Token atual retornado pelo whatsmeow.</p>
-            </div>
-            <div className="flex flex-1 flex-col gap-3 p-5">
-              <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4">
-                {qrCode ? (
-                  <textarea
-                    readOnly
-                    value={qrCode}
-                    className="h-full min-h-[220px] w-full resize-none rounded-lg border border-slate-200 bg-white p-3 font-mono text-xs text-slate-700 focus:outline-none"
-                  />
-                ) : (
-                  <div className="text-center text-sm text-slate-500">
-                    <QrCode className="mx-auto mb-3 h-10 w-10 text-slate-300" />
-                    QR indisponivel ou instancia ja conectada.
-                  </div>
-                )}
-              </div>
-            </div>
-          </aside>
         </section>
       )}
     </div>
