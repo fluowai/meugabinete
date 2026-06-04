@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -120,6 +121,11 @@ func (s *APIServer) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		parsedToken, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
 			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method")
+			}
+			// Attempt to base64 decode if the secret looks like base64
+			decoded, decodeErr := base64.StdEncoding.DecodeString(jwtSecret)
+			if decodeErr == nil && len(decoded) > 0 {
+				return decoded, nil
 			}
 			return []byte(jwtSecret), nil
 		})
