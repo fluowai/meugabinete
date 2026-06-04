@@ -174,8 +174,13 @@ function Avatar({
   );
 }
 
-export default function WhatsAppHub() {
-  const [activeTab, setActiveTab] = useState<WhatsAppTab>('direct');
+export default function WhatsAppHub({ defaultTab = 'direct' }: { defaultTab?: WhatsAppTab }) {
+  const [activeTab, setActiveTab] = useState<WhatsAppTab>(defaultTab);
+
+  useEffect(() => {
+    setActiveTab(defaultTab);
+  }, [defaultTab]);
+
   const [search, setSearch] = useState('');
   const [chats, setChats] = useState<WhatsAppChat[]>([]);
   const [messages, setMessages] = useState<WhatsAppMessage[]>([]);
