@@ -108,6 +108,18 @@ CREATE TABLE IF NOT EXISTS request_attachments (
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS request_interactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    request_id UUID REFERENCES requests(id) ON DELETE CASCADE,
+    author VARCHAR(255) NOT NULL,
+    text TEXT NOT NULL,
+    status VARCHAR(20),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_request_interactions_request_id ON request_interactions(request_id);
+CREATE INDEX IF NOT EXISTS idx_request_interactions_created_at ON request_interactions(created_at DESC);
+
 -- =====================================================
 -- WHATSAPP - CONVERSAS, GRUPOS, MENSAGENS E AGENTES
 -- =====================================================

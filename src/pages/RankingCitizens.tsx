@@ -1,16 +1,34 @@
+import { useMemo } from 'react';
 import { motion } from 'motion/react';
-import { Award, TrendingUp, User, MessageSquare } from 'lucide-react';
-import { useCitizens } from '../hooks/useApi';
+import { Award, TrendingUp, MessageSquare, Loader2 } from 'lucide-react';
+import { useCitizens, useRequests } from '../hooks/useApi';
 import { cn } from '../lib/utils';
 
 export default function RankingCitizens() {
   const { data: citizens, loading } = useCitizens(1, 1000);
-  const citizenStats = [...citizens].sort((a, b) => (b.score || 0) - (a.score || 0));
+  const { data: requests, loading: loadingRequests } = useRequests(1, 1000);
 
-  if (loading) {
+  const citizenStats = useMemo(() => {
+    const demandCount = new Map<string, number>();
+    requests.forEach(r => {
+      if (r.requesterId) {
+        demandCount.set(r.requesterId, (demandCount.get(r.requesterId) || 0) + 1);
+      }
+    });
+
+    return [...citizens]
+      .map(c => ({
+        ...c,
+        totalDemands: demandCount.get(c.id) || 0,
+        score: (demandCount.get(c.id) || 0) * 10,
+      }))
+      .sort((a, b) => b.score - a.score);
+  }, [citizens, requests]);
+
+  if (loading || loadingRequests) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
       </div>
     );
   }
@@ -106,7 +124,7 @@ export default function RankingCitizens() {
                 <td className="px-6 py-4 text-center">
                   <div className="inline-flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold">
                     <MessageSquare className="w-3 h-3" />
-                    {(citizen as any).totalDemands || Math.floor((citizen.score || 0) / 10)}
+                    {citizen.totalDemands}
                   </div>
                 </td>
                 <td className="px-6 py-4">

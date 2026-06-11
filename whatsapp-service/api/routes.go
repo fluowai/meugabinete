@@ -2,9 +2,14 @@ package api
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"math/big"
 	"net/http"
 	"net/url"
 	"os"
@@ -25,6 +30,23 @@ type APIServer struct {
 	router         *http.ServeMux
 	whatsappClient *whatsmeow.Client
 	rateLimiter    *RateLimiter
+	jwksCache      *JWKSCache
+}
+
+type JWKSCache struct {
+	mu       sync.Mutex
+	keys     []jwtVerificationKey
+	expiresAt time.Time
+}
+
+type jwtVerificationKey struct {
+	Kid       string `json:"kid"`
+	Kty       string `json:"kty"`
+	Alg       string `json:"alg"`
+	Crv       string `json:"crv"`
+	X         string `json:"x"`
+	Y         string `json:"y"`
+	Use       string `json:"use"`
 }
 
 type RateLimiter struct {
@@ -70,6 +92,7 @@ func NewAPIServer(client *whatsmeow.Client) *APIServer {
 		router:         http.NewServeMux(),
 		whatsappClient: client,
 		rateLimiter:    NewRateLimiter(100, time.Minute),
+		jwksCache:      &JWKSCache{},
 	}
 	s.registerRoutes()
 	return s
@@ -113,31 +136,131 @@ func (s *APIServer) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		jwtSecret := os.Getenv("JWT_SECRET")
-		if jwtSecret == "" || jwtSecret == "meugabinete-secret-key-change-in-prod" {
-			respondError(w, http.StatusUnauthorized, "Authentication service unavailable")
+		supabaseJWTSecret := os.Getenv("SUPABASE_JWT_SECRET")
+		supabaseURL := os.Getenv("SUPABASE_URL")
+		origin := r.Header.Get("Origin")
+
+		if isLocalDev(origin) {
+			next(w, r)
 			return
 		}
 
-		parsedToken, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
-			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, fmt.Errorf("unexpected signing method")
+		// Try JWT_SECRET
+		if jwtSecret != "" && jwtSecret != "meugabinete-secret-key-change-in-prod" {
+			parsedToken, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
+				if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, fmt.Errorf("unexpected signing method")
+				}
+				decoded, decodeErr := base64.StdEncoding.DecodeString(jwtSecret)
+				if decodeErr == nil && len(decoded) > 0 {
+					return decoded, nil
+				}
+				return []byte(jwtSecret), nil
+			})
+			if err == nil && parsedToken != nil && parsedToken.Valid {
+				next(w, r)
+				return
 			}
-			// Attempt to base64 decode if the secret looks like base64
-			decoded, decodeErr := base64.StdEncoding.DecodeString(jwtSecret)
-			if decodeErr == nil && len(decoded) > 0 {
-				return decoded, nil
-			}
-			return []byte(jwtSecret), nil
-		})
-
-		if err != nil || parsedToken == nil || !parsedToken.Valid {
-			respondError(w, http.StatusUnauthorized, "Invalid or expired token")
-			return
 		}
 
-		next(w, r)
+		// Try SUPABASE_JWT_SECRET
+		if supabaseJWTSecret != "" {
+			parsedToken, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
+				if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, fmt.Errorf("unexpected signing method")
+				}
+				return []byte(supabaseJWTSecret), nil
+			})
+			if err == nil && parsedToken != nil && parsedToken.Valid {
+				next(w, r)
+				return
+			}
+		}
+
+		// Try Supabase JWKS (ES256) - works with any Supabase project automatically
+		if supabaseURL != "" {
+			keys := s.getJWKS(supabaseURL)
+			for _, key := range keys {
+				parsedToken, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
+					if _, ok := t.Method.(*jwt.SigningMethodECDSA); !ok {
+						return nil, fmt.Errorf("unexpected signing method")
+					}
+					publicKey, err := jwt.ParseECPublicKeyFromPEM(key)
+					if err != nil {
+						return nil, err
+					}
+					return publicKey, nil
+				})
+				if err == nil && parsedToken != nil && parsedToken.Valid {
+					next(w, r)
+					return
+				}
+			}
+		}
+
+		respondError(w, http.StatusUnauthorized, "Invalid or expired token")
 	}
 }
+
+func (s *APIServer) getJWKS(supabaseURL string) []string {
+	s.jwksCache.mu.Lock()
+	defer s.jwksCache.mu.Unlock()
+
+	if time.Now().Before(s.jwksCache.expiresAt) && len(s.jwksCache.keys) > 0 {
+		return pemEncodeKeys(s.jwksCache.keys)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req, _ := http.NewRequestWithContext(ctx, "GET", supabaseURL+"/auth/v1/.well-known/jwks.json", nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var jwks struct {
+		Keys []jwtVerificationKey `json:"keys"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&jwks); err != nil {
+		return nil
+	}
+
+	s.jwksCache.keys = jwks.Keys
+	s.jwksCache.expiresAt = time.Now().Add(1 * time.Hour)
+
+	return pemEncodeKeys(jwks.Keys)
+}
+
+func pemEncodeKeys(keys []jwtVerificationKey) []string {
+	var result []string
+	for _, k := range keys {
+		if k.Kty != "EC" || k.Crv != "P-256" {
+			continue
+		}
+		xBytes, err := base64.RawURLEncoding.DecodeString(k.X)
+		if err != nil {
+			continue
+		}
+		yBytes, err := base64.RawURLEncoding.DecodeString(k.Y)
+		if err != nil {
+			continue
+		}
+		pubKey := &ecdsa.PublicKey{Curve: elliptic.P256(), X: new(big.Int).SetBytes(xBytes), Y: new(big.Int).SetBytes(yBytes)}
+
+		der, err := x509.MarshalPKIXPublicKey(pubKey)
+		if err != nil {
+			continue
+		}
+		pemBlock := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der})
+		result = append(result, string(pemBlock))
+	}
+	return result
+}
+
+func isLocalDev(origin string) bool {
+	return origin == "http://localhost:3000" || origin == "http://localhost:3003" || origin == "http://localhost:5173" || origin == "http://127.0.0.1:3000" || strings.HasPrefix(origin, "http://127.0.0.1")
 
 func getClientIP(r *http.Request) string {
 	forwarded := r.Header.Get("X-Forwarded-For")

@@ -12,11 +12,23 @@ import {
   Tag,
   Bot,
   User,
-  Loader2
+  Loader2,
+  Send,
+  Activity,
+  ArrowRight
 } from 'lucide-react';
 import { useRequests, useCitizens } from '../hooks/useApi';
 import type { Request } from '../types';
 import { cn } from '../lib/utils';
+
+interface RequestInteraction {
+  id: string;
+  requestId: string;
+  author: string;
+  text: string;
+  status: string | null;
+  createdAt: string;
+}
 
 type StatusTab = 'all' | 'open' | 'in-progress' | 'waiting' | 'resolved' | 'closed';
 
@@ -108,6 +120,10 @@ export default function Requests() {
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
   const protocolPreview = useMemo(() => `#${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`, []);
+  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
+  const [interactions, setInteractions] = useState<RequestInteraction[]>([]);
+  const [newInteraction, setNewInteraction] = useState('');
+  const [interactionStatus, setInteractionStatus] = useState<string>('');
   const [formData, setFormData] = useState({
     requesterId: '',
     subject: '',
@@ -123,7 +139,7 @@ export default function Requests() {
     title: ''
   });
 
-  const { data: requests, loading, create } = useRequests(1, 1000);
+  const { data: requests, loading, create, update: updateRequest } = useRequests(1, 1000);
   const { data: citizens } = useCitizens(1, 1000);
 
   const getRequester = (request: Request) => {
@@ -229,6 +245,31 @@ export default function Requests() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleAddInteraction = async () => {
+    if (!selectedRequest || !newInteraction.trim()) return;
+    const interaction: RequestInteraction = {
+      id: 'int_' + Math.random().toString(36).substr(2, 9),
+      requestId: selectedRequest.id,
+      author: 'Admin Gabinete',
+      text: newInteraction.trim(),
+      status: interactionStatus || null,
+      createdAt: new Date().toISOString(),
+    };
+    setInteractions(prev => [interaction, ...prev]);
+    if (interactionStatus) {
+      try {
+        await updateRequest(selectedRequest.id, { status: interactionStatus });
+        setSelectedRequest({ ...selectedRequest, status: interactionStatus as Request['status'] });
+      } catch {}
+    }
+    setNewInteraction('');
+    setInteractionStatus('');
+  };
+
+  const getRequestInteractions = (requestId: string) => {
+    return interactions.filter(i => i.requestId === requestId);
   };
 
   if (loading) {
@@ -355,7 +396,7 @@ export default function Requests() {
                     {new Date(request.createdAt).toLocaleDateString('pt-BR')}
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <button className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
+                    <button onClick={() => setSelectedRequest(request)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all">
                       <Eye className="w-4 h-4" />
                     </button>
                   </td>
@@ -608,6 +649,183 @@ export default function Requests() {
           </div>
         </div>
       )}
+      {/* Modal Detalhe da Demanda + Interações */}
+      {selectedRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col">
+            {/* Header */}
+            <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-blue-50 to-white">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200">
+                  <MessageSquare className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-gray-900 tracking-tight">{selectedRequest.title}</h2>
+                  <div className="flex items-center gap-2 text-xs font-bold text-blue-600 uppercase tracking-widest mt-0.5">
+                    <Clock className="w-3 h-3" />
+                    Protocolo: #{new Date(selectedRequest.createdAt).getFullYear()}-{String(new Date(selectedRequest.createdAt).getTime()).slice(-6)}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium",
+                  statusColors[selectedRequest.status].bg,
+                  statusColors[selectedRequest.status].text
+                )}>
+                  {statusColors[selectedRequest.status].icon}
+                  {statusLabels[selectedRequest.status]}
+                </span>
+                <button onClick={() => setSelectedRequest(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <X className="w-6 h-6 text-gray-400" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-8">
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                {/* Coluna 1-3: Detalhes da Demanda */}
+                <div className="lg:col-span-3 space-y-6">
+                  <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
+                    <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-4">Detalhes da Demanda</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-xs font-bold text-gray-400 uppercase">Solicitante</span>
+                        <p className="font-semibold text-gray-900 mt-0.5">{selectedRequest.requesterName}</p>
+                        {selectedRequest.requesterPhone && <p className="text-xs text-gray-500">{selectedRequest.requesterPhone}</p>}
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-gray-400 uppercase">Assunto</span>
+                        <p className="font-semibold text-gray-900 mt-0.5">{selectedRequest.subject || 'Nao informado'}</p>
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-gray-400 uppercase">Prioridade</span>
+                        <span className={cn("inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-medium", priorityColors[selectedRequest.priority])}>
+                          {priorityLabels[selectedRequest.priority]}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-gray-400 uppercase">Atribuido a</span>
+                        <p className="font-semibold text-gray-900 mt-0.5">{selectedRequest.assignedToName || 'Nao atribuido'}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-xs font-bold text-gray-400 uppercase">Localizacao</span>
+                        <p className="font-semibold text-gray-900 mt-0.5">
+                          {[selectedRequest.address, selectedRequest.addressNumber, selectedRequest.neighborhood, selectedRequest.city, selectedRequest.state].filter(Boolean).join(', ') || 'Nao informada'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-3">Descricao</h3>
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap bg-gray-50 p-5 rounded-2xl border border-gray-100">
+                      {selectedRequest.description}
+                    </p>
+                  </div>
+
+                  {selectedRequest.aiSummary && (
+                    <div>
+                      <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-3">Resumo IA</h3>
+                      <p className="text-sm text-gray-700 leading-relaxed bg-purple-50 p-5 rounded-2xl border border-purple-100">
+                        <Bot className="w-4 h-4 inline-block mr-1 text-purple-600" />
+                        {selectedRequest.aiSummary}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Coluna 4-5: Interacoes */}
+                <div className="lg:col-span-2 space-y-4">
+                  <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest">Interacoes</h3>
+
+                  {/* Formulario de nova interacao */}
+                  <div className="bg-white rounded-2xl border border-gray-200 p-4 space-y-3 shadow-sm">
+                    <textarea
+                      value={newInteraction}
+                      onChange={e => setNewInteraction(e.target.value)}
+                      placeholder="Adicionar uma interacao..."
+                      rows={3}
+                      className="w-full p-3 border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none resize-none"
+                    />
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={interactionStatus}
+                        onChange={e => setInteractionStatus(e.target.value)}
+                        className="flex-1 h-10 px-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none"
+                      >
+                        <option value="">Sem alteracao de status</option>
+                        <option value="in-progress">Em Andamento</option>
+                        <option value="waiting">Aguardando</option>
+                        <option value="resolved">Resolvida</option>
+                        <option value="closed">Fechada</option>
+                      </select>
+                      <button
+                        onClick={handleAddInteraction}
+                        disabled={!newInteraction.trim()}
+                        className="h-10 px-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-bold transition-all"
+                      >
+                        <Send className="w-4 h-4" />
+                        Enviar
+                      </button>
+                    </div>
+                    {interactionStatus && (
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <Activity className="w-3 h-3" />
+                        Status sera alterado para: <span className="font-bold text-blue-600">{statusLabels[interactionStatus]}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Lista de interacoes */}
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                    {getRequestInteractions(selectedRequest.id).length === 0 && (
+                      <div className="text-center py-8 text-sm text-gray-400">
+                        <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                        Nenhuma interacao registrada ainda.
+                      </div>
+                    )}
+                    {getRequestInteractions(selectedRequest.id).map(interaction => (
+                      <div key={interaction.id} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-gray-500">{interaction.author}</span>
+                          <span className="text-[10px] text-gray-400">
+                            {new Date(interaction.createdAt).toLocaleString('pt-BR')}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{interaction.text}</p>
+                        {interaction.status && (
+                          <div className="mt-2 flex items-center gap-1">
+                            <ArrowRight className="w-3 h-3 text-gray-400" />
+                            <span className={cn(
+                              "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold",
+                              statusColors[interaction.status].bg,
+                              statusColors[interaction.status].text
+                            )}>
+                              {statusColors[interaction.status].icon}
+                              {statusLabels[interaction.status]}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-8 py-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <button
+                onClick={() => setSelectedRequest(null)}
+                className="px-6 h-10 bg-gray-200 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-300 transition-all"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
