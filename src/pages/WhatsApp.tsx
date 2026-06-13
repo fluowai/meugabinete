@@ -356,6 +356,14 @@ export default function WhatsAppHub() {
     }
   };
 
+  useEffect(() => {
+    if (!qrCode) return;
+    const interval = setInterval(() => {
+      loadQR('default');
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [qrCode]);
+
   const syncGroups = async () => {
     setSyncingGroups(true);
     setError('');
