@@ -4,14 +4,28 @@
 -- =====================================================
 
 -- =====================================================
+-- TENANTS (MULTI-TENANCY)
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS tenants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    slug VARCHAR(100) UNIQUE NOT NULL,
+    settings JSONB DEFAULT '{}'::jsonb,
+    status VARCHAR(20) DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =====================================================
 -- USUARIOS E AUTENTICAÇÃO
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(50) DEFAULT 'user',
     avatar TEXT,
     phone VARCHAR(20),
@@ -21,12 +35,15 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_users_tenant ON users(tenant_id);
+
 -- =====================================================
 -- CIDADÃOS
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS citizens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255),
     phone VARCHAR(20),
@@ -59,6 +76,7 @@ CREATE INDEX idx_citizens_neighborhood ON citizens(neighborhood);
 CREATE TABLE IF NOT EXISTS citizen_tags (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     citizen_id UUID REFERENCES citizens(id) ON DELETE CASCADE,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     tag VARCHAR(50) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(citizen_id, tag)
@@ -70,6 +88,7 @@ CREATE TABLE IF NOT EXISTS citizen_tags (
 
 CREATE TABLE IF NOT EXISTS requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
     subject VARCHAR(100), -- Assunto classificado pela IA ou manual
@@ -103,6 +122,7 @@ CREATE INDEX idx_requests_priority ON requests(priority);
 CREATE TABLE IF NOT EXISTS request_attachments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     request_id UUID REFERENCES requests(id) ON DELETE CASCADE,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     filename VARCHAR(255) NOT NULL,
     url TEXT NOT NULL,
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -126,6 +146,7 @@ CREATE INDEX IF NOT EXISTS idx_request_interactions_created_at ON request_intera
 
 CREATE TABLE IF NOT EXISTS whatsapp_chats (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     chat_jid TEXT UNIQUE NOT NULL,
     chat_type VARCHAR(20) NOT NULL CHECK (chat_type IN ('direct', 'group')),
     display_name VARCHAR(255) NOT NULL,
@@ -248,6 +269,7 @@ CREATE TABLE IF NOT EXISTS agent_actions (
 
 CREATE TABLE IF NOT EXISTS basic_registers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     category VARCHAR(20) NOT NULL, -- demand_subject, neighborhood, status, etc
     name VARCHAR(255) NOT NULL,
     code VARCHAR(50),
@@ -259,11 +281,132 @@ CREATE TABLE IF NOT EXISTS basic_registers (
 );
 
 -- =====================================================
+-- ORGANIZAÇÕES
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS organizations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(50),
+    phone VARCHAR(20),
+    email VARCHAR(255),
+    address TEXT,
+    city VARCHAR(100),
+    state VARCHAR(2),
+    status VARCHAR(20) DEFAULT 'active',
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_organizations_tenant ON organizations(tenant_id);
+
+CREATE TABLE IF NOT EXISTS organization_contacts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    role VARCHAR(100),
+    phone VARCHAR(20),
+    email VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =====================================================
+-- COMPROMISSOS (APPOINTMENTS)
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS appointments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    location TEXT,
+    appointment_date TIMESTAMP NOT NULL,
+    duration_minutes INTEGER DEFAULT 60,
+    status VARCHAR(20) DEFAULT 'scheduled',
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_appointments_tenant ON appointments(tenant_id);
+CREATE INDEX idx_appointments_date ON appointments(appointment_date);
+
+CREATE TABLE IF NOT EXISTS appointment_attendees (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    appointment_id UUID REFERENCES appointments(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    phone VARCHAR(20),
+    email VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =====================================================
+-- MOBILIZAÇÕES
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS mobilizations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    category VARCHAR(50),
+    status VARCHAR(20) DEFAULT 'active',
+    start_date TIMESTAMP,
+    end_date TIMESTAMP,
+    location TEXT,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_mobilizations_tenant ON mobilizations(tenant_id);
+
+CREATE TABLE IF NOT EXISTS mobilization_participants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    mobilization_id UUID REFERENCES mobilizations(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    phone VARCHAR(20),
+    email VARCHAR(255),
+    city VARCHAR(100),
+    neighborhood VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =====================================================
+-- LANDING PAGES
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS landing_pages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    slug VARCHAR(100) UNIQUE NOT NULL,
+    description TEXT,
+    status VARCHAR(20) DEFAULT 'draft',
+    settings JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_landing_pages_tenant ON landing_pages(tenant_id);
+CREATE INDEX idx_landing_pages_slug ON landing_pages(slug);
+
+CREATE TABLE IF NOT EXISTS landing_page_submissions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    landing_page_id UUID REFERENCES landing_pages(id) ON DELETE CASCADE,
+    data JSONB NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =====================================================
 -- WHATSAPP E CAMPANHAS
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS whatsapp_campaigns (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     status VARCHAR(20) DEFAULT 'draft',

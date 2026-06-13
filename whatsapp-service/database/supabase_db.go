@@ -7,9 +7,20 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
+
+var validTableName = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+var validColumnName = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+func validateTableName(name string) error {
+	if !validTableName.MatchString(name) {
+		return fmt.Errorf("nome de tabela inválido: %s", name)
+	}
+	return nil
+}
 
 // SaveToSupabase envia um JSON para qualquer tabela do Supabase
 func SaveToSupabase(table string, data interface{}) ([]byte, error) {
@@ -21,6 +32,9 @@ func UpsertToSupabase(table string, conflictTarget string, data interface{}) ([]
 }
 
 func saveToSupabase(table string, conflictTarget string, data interface{}) ([]byte, error) {
+	if err := validateTableName(table); err != nil {
+		return nil, err
+	}
 	supabaseURL := os.Getenv("SUPABASE_URL")
 	supabaseKey := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
 	if supabaseURL == "" || supabaseKey == "" {
@@ -75,6 +89,9 @@ func saveToSupabase(table string, conflictTarget string, data interface{}) ([]by
 }
 
 func FetchFromSupabase(table string, query string) ([]byte, error) {
+	if err := validateTableName(table); err != nil {
+		return nil, err
+	}
 	supabaseURL := os.Getenv("SUPABASE_URL")
 	supabaseKey := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
 	if supabaseURL == "" || supabaseKey == "" {
@@ -83,6 +100,11 @@ func FetchFromSupabase(table string, query string) ([]byte, error) {
 
 	url := fmt.Sprintf("%s/rest/v1/%s", supabaseURL, table)
 	if strings.TrimSpace(query) != "" {
+		// Rejeita queries com caracteres potencialmente perigosos
+		disallowed := regexp.MustCompile(`[;'"\-\-]`)
+		if disallowed.MatchString(query) {
+			return nil, fmt.Errorf("query contém caracteres não permitidos")
+		}
 		url += "?" + query
 	}
 

@@ -9,3 +9,6 @@ coverage/
 !.env.production.example
 *.exe
 whatsapp-service/*.db
+whatsapp_sessions.db
+*.err.log
+*.out.log

@@ -262,7 +262,7 @@ export default function Requests() {
       try {
         await updateRequest(selectedRequest.id, { status: interactionStatus });
         setSelectedRequest({ ...selectedRequest, status: interactionStatus as Request['status'] });
-      } catch {}
+      } catch { /* silent - status update may fail if request wasn't created */ }
     }
     setNewInteraction('');
     setInteractionStatus('');

@@ -27,16 +27,6 @@ interface AppState {
 
 const now = () => new Date().toISOString();
 
-const createDevUser = (email: string): User => ({
-  id: 'dev-admin',
-  name: 'Admin Gabinete',
-  email,
-  role: email.includes('superadmin') ? 'super_admin' : 'admin',
-  status: 'active',
-  createdAt: now(),
-  updatedAt: now(),
-});
-
 const createUserFromAuth = (authUser: any): User => ({
   id: authUser.id,
   name: authUser.user_metadata?.name || 'Admin Gabinete',
@@ -47,22 +37,6 @@ const createUserFromAuth = (authUser: any): User => ({
   createdAt: authUser.created_at || now(),
   updatedAt: authUser.updated_at || authUser.created_at || now(),
 });
-
-const canUseDevLogin = (email: string, password: string) => {
-  const devLoginEmail = import.meta.env.VITE_DEV_LOGIN_EMAIL;
-  const devLoginPassword = import.meta.env.VITE_DEV_LOGIN_PASSWORD;
-  const isLocalhost =
-    window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1';
-
-  return (
-    isLocalhost &&
-    devLoginEmail &&
-    devLoginPassword &&
-    email.trim().toLowerCase() === devLoginEmail.trim().toLowerCase() &&
-    password === devLoginPassword
-  );
-};
 
 export const useStore = create<AppState>()((set) => ({
   user: null,
@@ -89,11 +63,6 @@ export const useStore = create<AppState>()((set) => ({
 
   login: async (email, password) => {
     try {
-      if (canUseDevLogin(email, password)) {
-        set({ user: createDevUser(email), isAuthenticated: true });
-        return { success: true };
-      }
-
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,

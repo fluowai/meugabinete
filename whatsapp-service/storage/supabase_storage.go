@@ -9,6 +9,36 @@ import (
 	"time"
 )
 
+var allowedMimeTypes = map[string]bool{
+	"image/jpeg":       true,
+	"image/png":        true,
+	"image/webp":       true,
+	"image/gif":        true,
+	"audio/ogg":        true,
+	"audio/mpeg":       true,
+	"audio/mp4":        true,
+	"video/mp4":        true,
+	"video/ogg":        true,
+	"application/pdf":  true,
+	"text/plain":       true,
+	"application/json": true,
+}
+
+const maxFileSize int64 = 10 * 1024 * 1024 // 10MB
+
+func validateFile(content []byte, contentType string) error {
+	if len(content) == 0 {
+		return fmt.Errorf("arquivo vazio")
+	}
+	if int64(len(content)) > maxFileSize {
+		return fmt.Errorf("arquivo excede o tamanho máximo de 10MB")
+	}
+	if !allowedMimeTypes[contentType] {
+		return fmt.Errorf("tipo de arquivo não permitido: %s", contentType)
+	}
+	return nil
+}
+
 // UploadToSupabase envia um arquivo para o bucket meugabinete
 func UploadToSupabase(fileContent []byte, fileName string, contentType string) (string, error) {
 	supabaseURL := os.Getenv("SUPABASE_URL")
@@ -17,6 +47,10 @@ func UploadToSupabase(fileContent []byte, fileName string, contentType string) (
 
 	if supabaseURL == "" || supabaseKey == "" {
 		return "", fmt.Errorf("configurações do Supabase ausentes")
+	}
+
+	if err := validateFile(fileContent, contentType); err != nil {
+		return "", err
 	}
 
 	// Estrutura de pasta: whatsapp/tipo/ano/mes/dia_timestamp_arquivo

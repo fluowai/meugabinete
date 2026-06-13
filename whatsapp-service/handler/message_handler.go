@@ -18,7 +18,6 @@ import (
 	waE2E "go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -219,10 +218,6 @@ func upsertGroupParticipant(groupJID string, participantJID string, phone string
 }
 
 func saveMessage(chatID string, chatJID string, senderJID string, senderPhone string, senderCountryCode string, senderProfilePhotoURL string, pushName string, senderDisplayName string, isGroup bool, groupName string, v *events.Message, textContent string, media MediaInfo, receivedAt time.Time) string {
-	rawPayload := map[string]interface{}{}
-	if raw, err := protojson.Marshal(v.Message); err == nil {
-		_ = json.Unmarshal(raw, &rawPayload)
-	}
 	payload := map[string]interface{}{
 		"chat_id":                    nilIfEmpty(chatID),
 		"message_id":                 v.Info.ID,
@@ -242,7 +237,6 @@ func saveMessage(chatID string, chatJID string, senderJID string, senderPhone st
 		"media_filename":             nilIfEmpty(media.Filename),
 		"quoted_message_id":          nilIfEmpty(quotedMessageID(v.Message)),
 		"mentioned_phones":           mentionedPhones(v.Message),
-		"raw_payload":                rawPayload,
 		"received_at":                receivedAt.Format(time.RFC3339),
 	}
 	resp, err := database.UpsertToSupabase("whatsapp_messages", "message_id", payload)

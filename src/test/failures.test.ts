@@ -323,8 +323,8 @@ describe('Falha #17: setPage(1) em CitizenList ao salvar é desnecessário', () 
 // =============================================================
 describe('Falha #18: mockApi.ts removido', () => {
   it('Arquivo morto mockApi.ts foi deletado', () => {
-    const fs = require('fs');
-    const path = require('path');
+    const fs = await import('fs');
+    const path = await import('path');
     expect(fs.existsSync(path.join(__dirname, '../hooks/mockApi.ts'))).toBe(false);
   });
 });

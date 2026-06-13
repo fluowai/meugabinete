@@ -84,6 +84,15 @@ interface WhatsAppConnection {
   last_connected_at?: string;
 }
 
+interface CloudAPIStatus {
+  status: string;
+  provider: string;
+  phone_number_id: string;
+  business_account_id: string;
+  webhook_registered: boolean;
+  version: string;
+}
+
 const getBaseUrl = () => {
   let baseUrl = import.meta.env.VITE_WHATSAPP_SERVICE_URL || 'http://localhost:3001';
   if (baseUrl && !baseUrl.startsWith('http')) {
@@ -144,6 +153,7 @@ const tabConfig = [
   { id: 'direct' as const, label: 'Conversas', icon: MessageSquare },
   { id: 'group' as const, label: 'Grupos', icon: Users },
   { id: 'messages' as const, label: 'Mensagens', icon: FileText },
+  { id: 'connections' as const, label: 'Conexões', icon: Wifi },
 ];
 
 function Avatar({
@@ -184,6 +194,8 @@ export default function WhatsAppHub() {
   const [loadingChats, setLoadingChats] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [connections, setConnections] = useState<WhatsAppConnection[]>([]);
+  const [cloudStatus, setCloudStatus] = useState<CloudAPIStatus | null>(null);
+  const [loadingCloudStatus, setLoadingCloudStatus] = useState(false);
   const [qrCode, setQrCode] = useState('');
   const [loadingConnections, setLoadingConnections] = useState(false);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
@@ -270,13 +282,28 @@ export default function WhatsAppHub() {
     }
   }, []);
 
+  const fetchCloudStatus = useCallback(async () => {
+    setLoadingCloudStatus(true);
+    try {
+      const data = await apiFetch<CloudAPIStatus>('/api/whatsapp/cloud-status');
+      setCloudStatus(data);
+    } catch {
+      setCloudStatus(null);
+    } finally {
+      setLoadingCloudStatus(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (activeTab === 'direct' || activeTab === 'group') {
       fetchChats(activeTab);
     } else if (activeTab === 'messages') {
       fetchAllMessages();
+    } else if (activeTab === 'connections') {
+      fetchConnections();
+      fetchCloudStatus();
     }
-  }, [activeTab, fetchAllMessages, fetchChats]);
+  }, [activeTab, fetchAllMessages, fetchChats, fetchConnections, fetchCloudStatus]);
 
   useEffect(() => {
     fetchMessages(selectedChat);
@@ -583,6 +610,117 @@ export default function WhatsAppHub() {
             {filteredMessages.map(renderMessage)}
           </div>
         </section>
+      )}
+
+      {activeTab === 'connections' && (
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
+          <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className="text-lg font-bold text-slate-900">WhatsApp Web (whatsmeow)</h2>
+              <p className="text-sm text-slate-500">Conexão via WhatsApp Web com QR Code</p>
+            </div>
+            <div className="flex-1 space-y-4 overflow-y-auto p-5">
+              {loadingConnections && <div className="text-center text-sm text-slate-500">Carregando...</div>}
+              {!loadingConnections && connections.length === 0 && (
+                <div className="pt-8 text-center text-sm text-slate-500">Nenhuma conexão encontrada.</div>
+              )}
+              {connections.map((conn) => (
+                <div key={conn.instance_key} className="rounded-lg border border-slate-200 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={cn('h-3 w-3 rounded-full', conn.connected ? 'bg-green-500' : 'bg-red-400')} />
+                      <div>
+                        <p className="font-bold text-slate-900">{conn.name}</p>
+                        <p className="text-xs text-slate-500">{conn.push_name || conn.phone || conn.instance_key}</p>
+                      </div>
+                    </div>
+                    <span className={cn('rounded-full px-3 py-1 text-xs font-bold', conn.connected ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700')}>
+                      {conn.connected ? 'Conectado' : 'Desconectado'}
+                    </span>
+                  </div>
+                  {conn.jid && <p className="mt-2 text-xs text-slate-400">JID: {conn.jid}</p>}
+                  {conn.last_seen_at && <p className="text-xs text-slate-400">Ultimo visto: {formatDateTime(conn.last_seen_at)}</p>}
+                </div>
+              ))}
+              <div className="flex gap-2">
+                <button onClick={() => loadQR('default')} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">
+                  <QrCode className="h-4 w-4" />
+                  Exibir QR Code
+                </button>
+                <button onClick={syncGroups} disabled={syncingGroups} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">
+                  <RefreshCcw className={cn('h-4 w-4', syncingGroups && 'animate-spin')} />
+                  Sincronizar grupos
+                </button>
+              </div>
+              {qrCode && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-center">
+                  <p className="mb-2 text-sm font-bold text-slate-700">Escaneie o QR Code com o WhatsApp</p>
+                  <div className="inline-block rounded-lg bg-white p-2 shadow-sm">
+                    <QrCode className="h-48 w-48" />
+                  </div>
+                  <p className="mt-2 break-all text-xs text-slate-400">{qrCode}</p>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <h2 className="text-lg font-bold text-slate-900">Cloud API (Oficial)</h2>
+              <p className="text-sm text-slate-500">WhatsApp Business API oficial da Meta</p>
+            </div>
+            <div className="flex-1 space-y-4 overflow-y-auto p-5">
+              {loadingCloudStatus && <div className="text-center text-sm text-slate-500">Carregando...</div>}
+              {!loadingCloudStatus && !cloudStatus && (
+                <div className="pt-8 text-center text-sm text-slate-500">
+                  Cloud API não configurada. Defina WHATSAPP_ACCESS_TOKEN e WHATSAPP_PHONE_NUMBER_ID.
+                </div>
+              )}
+              {cloudStatus && (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-slate-200 p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-slate-700">Status</span>
+                      <span className={cn(
+                        'rounded-full px-3 py-1 text-xs font-bold',
+                        cloudStatus.status === 'connected' ? 'bg-green-50 text-green-700' :
+                        cloudStatus.status === 'configured' ? 'bg-yellow-50 text-yellow-700' :
+                        'bg-red-50 text-red-700'
+                      )}>
+                        {cloudStatus.status === 'connected' ? 'Conectado' :
+                         cloudStatus.status === 'configured' ? 'Configurado' : 'Não configurado'}
+                      </span>
+                    </div>
+                  </div>
+                  {cloudStatus.phone_number_id && (
+                    <div className="rounded-lg border border-slate-200 p-4">
+                      <p className="text-xs font-semibold text-slate-500">Phone Number ID</p>
+                      <p className="text-sm font-mono text-slate-900">{cloudStatus.phone_number_id}</p>
+                    </div>
+                  )}
+                  {cloudStatus.business_account_id && (
+                    <div className="rounded-lg border border-slate-200 p-4">
+                      <p className="text-xs font-semibold text-slate-500">Business Account ID</p>
+                      <p className="text-sm font-mono text-slate-900">{cloudStatus.business_account_id}</p>
+                    </div>
+                  )}
+                  <div className="rounded-lg border border-slate-200 p-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-slate-700">Webhook</p>
+                      <span className={cn('rounded-full px-3 py-1 text-xs font-bold', cloudStatus.webhook_registered ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700')}>
+                        {cloudStatus.webhook_registered ? 'Registrado' : 'Não registrado'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 p-4">
+                    <p className="text-xs font-semibold text-slate-500">API Version</p>
+                    <p className="text-sm font-mono text-slate-900">{cloudStatus.version || 'N/A'}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
       )}
     </div>
   );

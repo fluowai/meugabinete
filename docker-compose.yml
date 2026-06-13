@@ -37,9 +37,9 @@ services:
         && nginx -t
         && exec nginx -g 'daemon off;'
     environment:
-      VITE_SUPABASE_URL: "https://cjirkvgalpignnaxixzr.supabase.co"
-      VITE_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqaXJrdmdhbHBpZ25uYXhpeHpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NjIzNzksImV4cCI6MjA5MzAzODM3OX0.MLVoApshNS_-0i56dnYXYEoP1_8WPEI5oknGbI6ijkg"
-      VITE_WHATSAPP_SERVICE_URL: "https://woogabinete.consultio.com.br"
+      VITE_SUPABASE_URL: "${VITE_SUPABASE_URL}"
+      VITE_SUPABASE_ANON_KEY: "${VITE_SUPABASE_ANON_KEY}"
+      VITE_WHATSAPP_SERVICE_URL: "${VITE_WHATSAPP_SERVICE_URL}"
     networks:
       - consultio1
       - meugabinete_internal
@@ -62,14 +62,20 @@ services:
     environment:
       PORT: 3001
       ALLOWED_ORIGINS: "https://woogabinete.consultio.com.br"
-      DATABASE_URL: "file:/app/data/whatsapp_sessions.db?_pragma=foreign_keys(1)"
-      SUPABASE_URL: "https://cjirkvgalpignnaxixzr.supabase.co"
-      SUPABASE_SERVICE_ROLE_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqaXJrdmdhbHBpZ25uYXhpeHpyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzQ2MjM3OSwiZXhwIjoyMDkzMDM4Mzc5fQ.RTXGhgTkp5UjSyiChm-4235N6avC8pN6Dv3ws6y2klM"
-      SUPABASE_BUCKET: "meugabinete"
-      JWT_SECRET: "b6TgqIi1txNJjVqwTrmuaVJHO6Y1hOFekJ2w/l7HihZ+uxtSJgVwd1ScRTX6IghWqJKpSrM0INZ59Q3gGo3Tnw=="
-      AI_PROVIDER: "gemini"
-      GEMINI_API_KEY: ""
-      CEP_FREE_PROVIDER: "viacep"
+      DATABASE_URL: "${DATABASE_URL:-file:/app/data/whatsapp_sessions.db?_pragma=foreign_keys(1)}"
+      SUPABASE_URL: "${SUPABASE_URL}"
+      SUPABASE_SERVICE_ROLE_KEY: "${SUPABASE_SERVICE_ROLE_KEY}"
+      SUPABASE_BUCKET: "${SUPABASE_BUCKET:-meugabinete}"
+      JWT_SECRET: "${JWT_SECRET}"
+      AI_PROVIDER: "${AI_PROVIDER:-gemini}"
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+      CEP_FREE_PROVIDER: "${CEP_FREE_PROVIDER:-viacep}"
+      WHATSAPP_ACCESS_TOKEN: "${WHATSAPP_ACCESS_TOKEN}"
+      WHATSAPP_PHONE_NUMBER_ID: "${WHATSAPP_PHONE_NUMBER_ID}"
+      WHATSAPP_BUSINESS_ACCOUNT_ID: "${WHATSAPP_BUSINESS_ACCOUNT_ID}"
+      WHATSAPP_WEBHOOK_VERIFY_TOKEN: "${WHATSAPP_WEBHOOK_VERIFY_TOKEN}"
+      WHATSAPP_APP_SECRET: "${WHATSAPP_APP_SECRET}"
+      WHATSAPP_API_VERSION: "${WHATSAPP_API_VERSION:-v22.0}"
     volumes:
       - whatsapp_data:/app/data
     networks:

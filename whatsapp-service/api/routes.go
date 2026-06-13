@@ -21,16 +21,19 @@ import (
 	"github.com/fluowai/meugabinete/whatsapp-service/campaign"
 	"github.com/fluowai/meugabinete/whatsapp-service/database"
 	"github.com/fluowai/meugabinete/whatsapp-service/handler"
+	"github.com/fluowai/meugabinete/whatsapp-service/official-api"
 	"github.com/golang-jwt/jwt/v5"
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
 )
 
 type APIServer struct {
-	router         *http.ServeMux
-	whatsappClient *whatsmeow.Client
-	rateLimiter    *RateLimiter
-	jwksCache      *JWKSCache
+	router          *http.ServeMux
+	whatsappClient  *whatsmeow.Client
+	cloudProvider   officialapi.WhatsAppProvider
+	webhookServer   *officialapi.WebhookServer
+	rateLimiter     *MultiRateLimiter
+	jwksCache       *JWKSCache
 }
 
 type JWKSCache struct {
@@ -54,6 +57,26 @@ type RateLimiter struct {
 	requests map[string][]time.Time
 	limit    int
 	window   time.Duration
+}
+
+type MultiRateLimiter struct {
+	global    *RateLimiter
+	sensitive *RateLimiter
+}
+
+func NewMultiRateLimiter() *MultiRateLimiter {
+	return &MultiRateLimiter{
+		global:    NewRateLimiter(60, time.Minute),
+		sensitive: NewRateLimiter(10, time.Minute),
+	}
+}
+
+func (m *MultiRateLimiter) Allow(ip string) bool {
+	return m.global.Allow(ip)
+}
+
+func (m *MultiRateLimiter) AllowSensitive(ip string) bool {
+	return m.sensitive.Allow(ip)
 }
 
 func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
@@ -87,13 +110,42 @@ func (rl *RateLimiter) Allow(ip string) bool {
 	return true
 }
 
-func NewAPIServer(client *whatsmeow.Client) *APIServer {
+type APIServerOption func(*APIServer)
+
+func WithCloudProvider(provider officialapi.WhatsAppProvider) APIServerOption {
+	return func(s *APIServer) {
+		s.cloudProvider = provider
+	}
+}
+
+func WithWebhookServer(ws *officialapi.WebhookServer) APIServerOption {
+	return func(s *APIServer) {
+		s.webhookServer = ws
+	}
+}
+
+func NewAPIServer(client *whatsmeow.Client, opts ...APIServerOption) *APIServer {
 	s := &APIServer{
 		router:         http.NewServeMux(),
 		whatsappClient: client,
-		rateLimiter:    NewRateLimiter(100, time.Minute),
+		rateLimiter:    NewMultiRateLimiter(),
 		jwksCache:      &JWKSCache{},
 	}
+
+	if officialapi.IsCloudAPIConfigured() {
+		provider, err := officialapi.GetActiveProvider()
+		if err == nil {
+			s.cloudProvider = provider
+			ws := officialapi.NewWebhookServer(officialapi.GetClient())
+			s.webhookServer = ws
+			fmt.Println("[Cloud API] WhatsApp Cloud API provider initialized")
+		}
+	}
+
+	for _, opt := range opts {
+		opt(s)
+	}
+
 	s.registerRoutes()
 	return s
 }
@@ -109,7 +161,7 @@ func (s *APIServer) registerRoutes() {
 	s.router.HandleFunc("/api/ai/providers", s.requireAuth(s.handleAIProviders))
 	s.router.HandleFunc("/api/ai/classify", s.requireAuth(s.handleClassify))
 	s.router.HandleFunc("/api/ai/chat", s.requireAuth(s.handleAIChat))
-	s.router.HandleFunc("/api/campaigns/send", s.requireAuth(s.handleSendCampaign))
+	s.router.HandleFunc("/api/campaigns/send", s.requireAuth(s.rateLimitSensitive(s.handleSendCampaign)))
 	s.router.HandleFunc("/api/insights/summary", s.requireAuth(s.handleInsights))
 	s.router.HandleFunc("/api/whatsapp/connections", s.requireAuth(s.handleWhatsAppConnections))
 	s.router.HandleFunc("/api/whatsapp/connections/", s.requireAuth(s.handleWhatsAppConnectionAction))
@@ -119,6 +171,34 @@ func (s *APIServer) registerRoutes() {
 	s.router.HandleFunc("/api/whatsapp/messages", s.requireAuth(s.handleWhatsAppMessages))
 	s.router.HandleFunc("/api/whatsapp/messages/", s.requireAuth(s.handleWhatsAppMessageAction))
 	s.router.HandleFunc("/api/agents", s.requireAuth(s.handleAgents))
+
+	// Webhook for WhatsApp Cloud API (no auth - called by Meta)
+	if s.webhookServer != nil {
+		s.router.HandleFunc("/api/webhook/whatsapp", s.webhookServer.Handler())
+		fmt.Println("[Webhook] Cloud API webhook registered at /api/webhook/whatsapp")
+	}
+
+	// Cloud API message sending endpoints (auth required)
+	s.router.HandleFunc("/api/whatsapp/cloud/send-text", s.requireAuth(s.rateLimitSensitive(s.handleCloudSendText)))
+	s.router.HandleFunc("/api/whatsapp/cloud/send-media", s.requireAuth(s.rateLimitSensitive(s.handleCloudSendMedia)))
+	s.router.HandleFunc("/api/whatsapp/cloud/send-template", s.requireAuth(s.rateLimitSensitive(s.handleCloudSendTemplate)))
+	s.router.HandleFunc("/api/whatsapp/cloud/upload-media", s.requireAuth(s.rateLimitSensitive(s.handleCloudUploadMedia)))
+	s.router.HandleFunc("/api/whatsapp/cloud/templates", s.requireAuth(s.handleCloudTemplates))
+	s.router.HandleFunc("/api/whatsapp/cloud/media/", s.requireAuth(s.handleCloudMediaDownload))
+
+	// Cloud API status endpoint (no auth)
+	s.router.HandleFunc("/api/whatsapp/cloud-status", s.handleCloudStatus)
+}
+
+func (s *APIServer) rateLimitSensitive(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		clientIP := getClientIP(r)
+		if !s.rateLimiter.AllowSensitive(clientIP) {
+			respondError(w, http.StatusTooManyRequests, "Rate limit exceeded for sensitive endpoint")
+			return
+		}
+		next(w, r)
+	}
 }
 
 func (s *APIServer) requireAuth(next http.HandlerFunc) http.HandlerFunc {
@@ -138,15 +218,9 @@ func (s *APIServer) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		jwtSecret := os.Getenv("JWT_SECRET")
 		supabaseJWTSecret := os.Getenv("SUPABASE_JWT_SECRET")
 		supabaseURL := os.Getenv("SUPABASE_URL")
-		origin := r.Header.Get("Origin")
-
-		if isLocalDev(origin) {
-			next(w, r)
-			return
-		}
 
 		// Try JWT_SECRET
-		if jwtSecret != "" && jwtSecret != "meugabinete-secret-key-change-in-prod" {
+		if jwtSecret != "" {
 			parsedToken, err := jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
 				if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 					return nil, fmt.Errorf("unexpected signing method")
@@ -185,7 +259,7 @@ func (s *APIServer) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 					if _, ok := t.Method.(*jwt.SigningMethodECDSA); !ok {
 						return nil, fmt.Errorf("unexpected signing method")
 					}
-					publicKey, err := jwt.ParseECPublicKeyFromPEM(key)
+					publicKey, err := jwt.ParseECPublicKeyFromPEM([]byte(key))
 					if err != nil {
 						return nil, err
 					}
@@ -259,19 +333,23 @@ func pemEncodeKeys(keys []jwtVerificationKey) []string {
 	return result
 }
 
-func isLocalDev(origin string) bool {
-	return origin == "http://localhost:3000" || origin == "http://localhost:3003" || origin == "http://localhost:5173" || origin == "http://127.0.0.1:3000" || strings.HasPrefix(origin, "http://127.0.0.1")
-
 func getClientIP(r *http.Request) string {
-	forwarded := r.Header.Get("X-Forwarded-For")
-	if forwarded != "" {
-		return strings.Split(forwarded, ",")[0]
+	// Only trust X-Forwarded-For when behind a trusted reverse proxy (nginx/traefik)
+	// In production, the proxy should be on localhost or docker network
+	remoteIP := strings.Split(r.RemoteAddr, ":")[0]
+	isTrustedProxy := remoteIP == "127.0.0.1" || remoteIP == "::1" || strings.HasPrefix(remoteIP, "10.") || strings.HasPrefix(remoteIP, "172.") || strings.HasPrefix(remoteIP, "192.168.")
+
+	if isTrustedProxy {
+		forwarded := r.Header.Get("X-Forwarded-For")
+		if forwarded != "" {
+			return strings.Split(forwarded, ",")[0]
+		}
+		ip := r.Header.Get("X-Real-IP")
+		if ip != "" {
+			return ip
+		}
 	}
-	ip := r.Header.Get("X-Real-IP")
-	if ip != "" {
-		return ip
-	}
-	return strings.Split(r.RemoteAddr, ":")[0]
+	return remoteIP
 }
 
 func (s *APIServer) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -285,6 +363,16 @@ func (s *APIServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 		status["whatsapp"] = "connected"
 	} else {
 		status["whatsapp"] = "disconnected"
+	}
+
+	if s.cloudProvider != nil {
+		if s.cloudProvider.IsConnected() {
+			status["cloud_api"] = "connected"
+		} else {
+			status["cloud_api"] = "configured"
+		}
+	} else {
+		status["cloud_api"] = "not_configured"
 	}
 
 	respondJSON(w, status)
@@ -761,6 +849,302 @@ func (s *APIServer) handleAgents(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func (s *APIServer) handleCloudStatus(w http.ResponseWriter, r *http.Request) {
+	status := "not_configured"
+	phoneNumberID := ""
+	businessAcctID := ""
+	apiVersion := ""
+	webhookRegistered := s.webhookServer != nil
+
+	if officialapi.IsCloudAPIConfigured() {
+		client := officialapi.GetClient()
+		phoneNumberID = client.GetPhoneNumberID()
+		businessAcctID = client.GetBusinessAcctID()
+		apiVersion = client.GetConfig().APIVersion
+		if s.cloudProvider != nil && s.cloudProvider.IsConnected() {
+			status = "connected"
+		} else {
+			status = "configured"
+		}
+	}
+
+	respondJSON(w, map[string]interface{}{
+		"status":              status,
+		"provider":            "cloud_api",
+		"phone_number_id":     phoneNumberID,
+		"business_account_id": businessAcctID,
+		"webhook_registered":  webhookRegistered,
+		"version":             apiVersion,
+	})
+}
+
+func (s *APIServer) handleCloudSendText(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.cloudProvider == nil {
+		respondError(w, http.StatusServiceUnavailable, "Cloud API not configured: set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID")
+		return
+	}
+
+	var req struct {
+		To   string `json:"to"`
+		Text string `json:"text"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if req.To == "" || req.Text == "" {
+		respondError(w, http.StatusBadRequest, "to and text are required")
+		return
+	}
+
+	if err := s.cloudProvider.SendText(req.To, req.Text); err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to send message: "+err.Error())
+		return
+	}
+
+	respondJSON(w, map[string]string{"status": "sent"})
+}
+
+func (s *APIServer) handleCloudSendMedia(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.cloudProvider == nil {
+		respondError(w, http.StatusServiceUnavailable, "Cloud API not configured")
+		return
+	}
+
+	var req struct {
+		To       string `json:"to"`
+		MediaID  string `json:"media_id"`
+		Caption  string `json:"caption,omitempty"`
+		MimeType string `json:"mime_type"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if req.To == "" || req.MediaID == "" {
+		respondError(w, http.StatusBadRequest, "to and media_id are required")
+		return
+	}
+
+	if err := s.cloudProvider.SendMedia(req.To, req.MediaID, req.Caption, req.MimeType); err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to send media: "+err.Error())
+		return
+	}
+
+	respondJSON(w, map[string]string{"status": "sent"})
+}
+
+func (s *APIServer) handleCloudSendTemplate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.cloudProvider == nil {
+		respondError(w, http.StatusServiceUnavailable, "Cloud API not configured")
+		return
+	}
+
+	var req struct {
+		To       string                       `json:"to"`
+		Name     string                       `json:"name"`
+		Language string                       `json:"language"`
+		Params   map[string]string            `json:"params,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if req.To == "" || req.Name == "" {
+		respondError(w, http.StatusBadRequest, "to and name are required")
+		return
+	}
+	lang := req.Language
+	if lang == "" {
+		lang = "pt_BR"
+	}
+
+	tmpl := &officialapi.TemplateMessage{
+		Name:     req.Name,
+		Language: officialapi.TemplateLanguage{Code: lang},
+	}
+
+	if len(req.Params) > 0 {
+		var bodyParams []officialapi.TemplateParameter
+		for _, val := range req.Params {
+			bodyParams = append(bodyParams, officialapi.TemplateParameter{
+				Type: "text",
+				Text: val,
+			})
+		}
+		tmpl.Components = []officialapi.TemplateComponent{
+			{
+				Type:       "body",
+				Parameters: bodyParams,
+			},
+		}
+	}
+
+	if err := s.cloudProvider.SendTemplate(req.To, tmpl); err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to send template: "+err.Error())
+		return
+	}
+
+	respondJSON(w, map[string]string{"status": "sent"})
+}
+
+func (s *APIServer) handleCloudUploadMedia(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.cloudProvider == nil {
+		respondError(w, http.StatusServiceUnavailable, "Cloud API not configured")
+		return
+	}
+
+	client := officialapi.GetClient()
+	mediaManager := officialapi.NewMediaManager(client)
+
+	var req struct {
+		URL      string `json:"url"`
+		MimeType string `json:"mime_type"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if req.URL == "" {
+		respondError(w, http.StatusBadRequest, "url is required")
+		return
+	}
+	mimeType := req.MimeType
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+
+	mediaID, err := mediaManager.UploadMediaFromURL(req.URL, mimeType)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to upload media: "+err.Error())
+		return
+	}
+
+	respondJSON(w, map[string]string{"media_id": mediaID})
+}
+
+func (s *APIServer) handleCloudTemplates(w http.ResponseWriter, r *http.Request) {
+	if s.cloudProvider == nil {
+		respondError(w, http.StatusServiceUnavailable, "Cloud API not configured")
+		return
+	}
+
+	client := officialapi.GetClient()
+	tm := officialapi.NewTemplateManager(client)
+
+	switch r.Method {
+	case "GET":
+		templates, err := tm.ListTemplates()
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "Failed to list templates: "+err.Error())
+			return
+		}
+		respondJSON(w, templates)
+
+	case "POST":
+		var req struct {
+			Name     string `json:"name"`
+			Language string `json:"language"`
+			Category string `json:"category"`
+			Body     string `json:"body"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			respondError(w, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+		if req.Name == "" || req.Body == "" {
+			respondError(w, http.StatusBadRequest, "name and body are required")
+			return
+		}
+		lang := req.Language
+		if lang == "" {
+			lang = "pt_BR"
+		}
+		category := req.Category
+		if category == "" {
+			category = "UTILITY"
+		}
+		if err := tm.CreateTemplate(req.Name, lang, category, req.Body); err != nil {
+			respondError(w, http.StatusInternalServerError, "Failed to create template: "+err.Error())
+			return
+		}
+		respondJSON(w, map[string]string{"status": "created"})
+
+	case "DELETE":
+		var req struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			respondError(w, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+		if req.Name == "" {
+			respondError(w, http.StatusBadRequest, "name is required")
+			return
+		}
+		if err := tm.DeleteTemplate(req.Name); err != nil {
+			respondError(w, http.StatusInternalServerError, "Failed to delete template: "+err.Error())
+			return
+		}
+		respondJSON(w, map[string]string{"status": "deleted"})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *APIServer) handleCloudMediaDownload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.cloudProvider == nil {
+		respondError(w, http.StatusServiceUnavailable, "Cloud API not configured")
+		return
+	}
+
+	mediaID := strings.TrimPrefix(r.URL.Path, "/api/whatsapp/cloud/media/")
+	if mediaID == "" {
+		respondError(w, http.StatusBadRequest, "media_id is required")
+		return
+	}
+
+	client := officialapi.GetClient()
+	mediaManager := officialapi.NewMediaManager(client)
+
+	data, mimeType, err := mediaManager.DownloadMedia(mediaID)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to download media: "+err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", mimeType)
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", len(data)))
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
 }
 
 func sendCampaignAsync(req struct {

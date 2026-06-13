@@ -2,17 +2,21 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/fluowai/meugabinete/whatsapp-service/ai"
 	"github.com/fluowai/meugabinete/whatsapp-service/api"
+	"github.com/fluowai/meugabinete/whatsapp-service/database"
 	"github.com/fluowai/meugabinete/whatsapp-service/handler"
+	"github.com/fluowai/meugabinete/whatsapp-service/official-api"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"go.mau.fi/whatsmeow"
@@ -103,6 +107,29 @@ func main() {
 	}
 
 	apiServer := api.NewAPIServer(whatsappClient)
+
+	if officialapi.IsCloudAPIConfigured() {
+		cloudClient := officialapi.GetClient()
+		ws := officialapi.NewWebhookServer(cloudClient)
+
+		ws.OnMessage(func(msg *officialapi.WhatsAppMessage) {
+			log.Printf("[Cloud API Webhook] Message from %s: type=%s text=%s",
+				msg.From, msg.Type, msg.TextBody)
+
+			chatJID := msg.From + "@s.whatsapp.net"
+			phone := msg.From
+			now := time.Now()
+
+			chatID := upsertCloudChat(chatJID, phone, msg.SenderName, msg.TextBody, now)
+			upsertCloudMessage(chatID, chatJID, phone, msg, now)
+		})
+
+		ws.OnStatus(func(status *officialapi.StatusUpdate) {
+			log.Printf("[Cloud API Webhook] Status: message=%s status=%s", status.ID, status.Status)
+		})
+
+		fmt.Println("[Cloud API] Webhook handlers registered")
+	}
 
 	allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
 	if allowedOrigins == "" {
@@ -242,4 +269,73 @@ func isAllowed(origin string, allowed []string) bool {
 		}
 	}
 	return false
+}
+
+func upsertCloudChat(chatJID, phone, senderName, lastMessage string, receivedAt time.Time) string {
+	displayName := senderName
+	if displayName == "" {
+		displayName = phone
+	}
+	payload := map[string]interface{}{
+		"chat_jid":         chatJID,
+		"chat_type":        "direct",
+		"display_name":     displayName,
+		"normalized_phone": phone,
+		"country_code":     "55",
+		"last_message":     lastMessage,
+		"last_message_at":  receivedAt.Format(time.RFC3339),
+	}
+	resp, err := database.UpsertToSupabase("whatsapp_chats", "chat_jid", payload)
+	if err != nil {
+		log.Printf("Failed to upsert Cloud API chat: %v", err)
+		return ""
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(resp, &created); err == nil {
+		return created.ID
+	}
+	return ""
+}
+
+func upsertCloudMessage(chatID, chatJID, phone string, msg *officialapi.WhatsAppMessage, receivedAt time.Time) {
+	if msg == nil {
+		return
+	}
+	messageType := msg.Type
+	if messageType == "" {
+		messageType = "text"
+	}
+	textContent := msg.TextBody
+	if textContent == "" && msg.MediaID != "" {
+		textContent = fmt.Sprintf("[%s recebida]", messageType)
+	}
+	payload := map[string]interface{}{
+		"chat_id":             nilIfEmpty(chatID),
+		"message_id":          msg.ID,
+		"chat_jid":            chatJID,
+		"sender_jid":          msg.From + "@s.whatsapp.net",
+		"sender_phone":        phone,
+		"sender_country_code": "55",
+		"sender_display_name": msg.SenderName,
+		"is_group":            false,
+		"message_type":        messageType,
+		"text_content":        nilIfEmpty(textContent),
+		"media_url":           nilIfEmpty(msg.MediaID),
+		"media_mime_type":     nilIfEmpty(msg.MediaMimeType),
+		"media_filename":      nilIfEmpty(msg.MediaFilename),
+		"received_at":         receivedAt.Format(time.RFC3339),
+	}
+	_, err := database.UpsertToSupabase("whatsapp_messages", "message_id", payload)
+	if err != nil {
+		log.Printf("Failed to upsert Cloud API message: %v", err)
+	}
+}
+
+func nilIfEmpty(value string) interface{} {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	return value
 }
