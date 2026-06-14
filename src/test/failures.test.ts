@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import { existsSync } from 'node:fs';
 
 // =============================================================
 // TESTE DE ANÁLISE DE FALHAS - MEU GABINETE 360
@@ -323,9 +324,7 @@ describe('Falha #17: setPage(1) em CitizenList ao salvar é desnecessário', () 
 // =============================================================
 describe('Falha #18: mockApi.ts removido', () => {
   it('Arquivo morto mockApi.ts foi deletado', () => {
-    const fs = await import('fs');
-    const path = await import('path');
-    expect(fs.existsSync(path.join(__dirname, '../hooks/mockApi.ts'))).toBe(false);
+    expect(existsSync(new URL('../hooks/mockApi.ts', import.meta.url))).toBe(false);
   });
 });
 

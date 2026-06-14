@@ -11,6 +11,7 @@ env:
   REGISTRY: ghcr.io
   FRONTEND_IMAGE: ghcr.io/fluowai/meugabinete-frontend
   API_IMAGE: ghcr.io/fluowai/meugabinete-whatsapp-service
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build-frontend:
@@ -19,7 +20,19 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Validate frontend
+        run: |
+          npm ci
+          npm run build
+          npm test
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -46,7 +59,17 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: whatsapp-service/go.mod
+          cache-dependency-path: whatsapp-service/go.sum
+
+      - name: Validate whatsapp-service
+        working-directory: whatsapp-service
+        run: go test ./...
 
       - name: Log in to GHCR
         uses: docker/login-action@v3

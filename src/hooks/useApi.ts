@@ -1608,7 +1608,7 @@ export function useTenants(page = 1, pageSize = 20) {
   const refresh = useCallback(async () => {
     setLoading(true); setError(null);
     if (isMockMode()) {
-      let list = getInitialMockData<Tenant>('tenants', defaultTenants);
+      const list = getInitialMockData<Tenant>('tenants', defaultTenants);
       const totalItems = list.length;
       const from = (page - 1) * pageSize;
       setData(list.slice(from, from + pageSize));
