@@ -28,28 +28,28 @@ import (
 )
 
 type APIServer struct {
-	router          *http.ServeMux
-	whatsappClient  *whatsmeow.Client
-	cloudProvider   officialapi.WhatsAppProvider
-	webhookServer   *officialapi.WebhookServer
-	rateLimiter     *MultiRateLimiter
-	jwksCache       *JWKSCache
+	router         *http.ServeMux
+	whatsappClient *whatsmeow.Client
+	cloudProvider  officialapi.WhatsAppProvider
+	webhookServer  *officialapi.WebhookServer
+	rateLimiter    *MultiRateLimiter
+	jwksCache      *JWKSCache
 }
 
 type JWKSCache struct {
-	mu       sync.Mutex
-	keys     []jwtVerificationKey
+	mu        sync.Mutex
+	keys      []jwtVerificationKey
 	expiresAt time.Time
 }
 
 type jwtVerificationKey struct {
-	Kid       string `json:"kid"`
-	Kty       string `json:"kty"`
-	Alg       string `json:"alg"`
-	Crv       string `json:"crv"`
-	X         string `json:"x"`
-	Y         string `json:"y"`
-	Use       string `json:"use"`
+	Kid string `json:"kid"`
+	Kty string `json:"kty"`
+	Alg string `json:"alg"`
+	Crv string `json:"crv"`
+	X   string `json:"x"`
+	Y   string `json:"y"`
+	Use string `json:"use"`
 }
 
 type RateLimiter struct {
@@ -383,12 +383,58 @@ func (s *APIServer) handleQR(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *APIServer) handleWhatsAppConnections(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		var request struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			respondError(w, http.StatusBadRequest, "Invalid request body")
+			return
+		}
+
+		request.Name = strings.TrimSpace(request.Name)
+		if request.Name == "" {
+			respondError(w, http.StatusBadRequest, "Instance name is required")
+			return
+		}
+		if len(request.Name) > 255 {
+			respondError(w, http.StatusBadRequest, "Instance name is too long")
+			return
+		}
+
+		snapshot := s.connectionSnapshot(request.Name)
+		if _, err := database.UpsertToSupabase("whatsapp_connections", "instance_key", snapshot); err != nil {
+			fmt.Printf("Failed to create WhatsApp connection: %v\n", err)
+			respondError(w, http.StatusBadGateway, "Failed to persist WhatsApp instance")
+			return
+		}
+		respondJSONWithStatus(w, http.StatusCreated, snapshot)
+		return
+	}
+
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	snapshot := s.connectionSnapshot()
+	instanceName := "Instancia principal"
+	body, fetchErr := database.FetchFromSupabase("whatsapp_connections", "select=*&order=updated_at.desc")
+	if fetchErr == nil {
+		var connections []struct {
+			InstanceKey string `json:"instance_key"`
+			Name        string `json:"name"`
+		}
+		if json.Unmarshal(body, &connections) == nil {
+			for _, connection := range connections {
+				if connection.InstanceKey == "default" && strings.TrimSpace(connection.Name) != "" {
+					instanceName = connection.Name
+					break
+				}
+			}
+		}
+	}
+
+	snapshot := s.connectionSnapshot(instanceName)
 	if _, err := database.UpsertToSupabase("whatsapp_connections", "instance_key", snapshot); err != nil {
 		fmt.Printf("Failed to upsert WhatsApp connection snapshot: %v\n", err)
 	}
@@ -436,7 +482,7 @@ func (s *APIServer) handleWhatsAppConnectionAction(w http.ResponseWriter, r *htt
 	}
 }
 
-func (s *APIServer) connectionSnapshot() map[string]interface{} {
+func (s *APIServer) connectionSnapshot(name string) map[string]interface{} {
 	status := "disconnected"
 	connected := false
 	phone := ""
@@ -458,7 +504,7 @@ func (s *APIServer) connectionSnapshot() map[string]interface{} {
 
 	return map[string]interface{}{
 		"instance_key":      "default",
-		"name":              "Instancia principal",
+		"name":              name,
 		"provider":          "whatsmeow",
 		"status":            status,
 		"connected":         connected,
@@ -958,10 +1004,10 @@ func (s *APIServer) handleCloudSendTemplate(w http.ResponseWriter, r *http.Reque
 	}
 
 	var req struct {
-		To       string                       `json:"to"`
-		Name     string                       `json:"name"`
-		Language string                       `json:"language"`
-		Params   map[string]string            `json:"params,omitempty"`
+		To       string            `json:"to"`
+		Name     string            `json:"name"`
+		Language string            `json:"language"`
+		Params   map[string]string `json:"params,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid request body")
@@ -1174,8 +1220,12 @@ func generateInsights() (string, error) {
 }
 
 func respondJSON(w http.ResponseWriter, data interface{}) {
+	respondJSONWithStatus(w, http.StatusOK, data)
+}
+
+func respondJSONWithStatus(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(data)
 }
 

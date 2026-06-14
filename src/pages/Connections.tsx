@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { QrCode, RefreshCcw, Smartphone, Wifi } from 'lucide-react';
+import { Plus, QrCode, RefreshCcw, Smartphone } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 
@@ -19,11 +19,15 @@ interface WhatsAppConnection {
 }
 
 const getBaseUrl = () => {
-  let baseUrl = import.meta.env.VITE_WHATSAPP_SERVICE_URL || 'http://localhost:3001';
+  let baseUrl = (import.meta.env.VITE_WHATSAPP_SERVICE_URL || '').trim();
+  const isLocalPage = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  if (!isLocalPage && /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(baseUrl)) {
+    baseUrl = '';
+  }
   if (baseUrl && !baseUrl.startsWith('http')) {
     baseUrl = `https://${baseUrl}`;
   }
-  return baseUrl;
+  return baseUrl.replace(/\/$/, '');
 };
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
@@ -37,8 +41,8 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     },
   });
   if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.error || `Erro HTTP ${response.status}`);
+    const payload = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(payload?.error || `Erro HTTP ${response.status}`);
   }
   return response.json();
 }
@@ -60,6 +64,9 @@ export default function Connections() {
   const [qrCode, setQrCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [syncingGroups, setSyncingGroups] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [instanceName, setInstanceName] = useState('Instância principal');
   const [error, setError] = useState('');
 
   const fetchConnections = useCallback(async () => {
@@ -68,12 +75,32 @@ export default function Connections() {
     try {
       const data = await apiFetch<WhatsAppConnection[]>('/api/whatsapp/connections');
       setConnections(data);
-    } catch {
-      setError('Não foi possivel carregar as conexões. Verifique o servidor backend.');
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : 'erro desconhecido';
+      setError(`Não foi possível carregar as conexões: ${detail}.`);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const createInstance = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setCreating(true);
+    setError('');
+    try {
+      const connection = await apiFetch<WhatsAppConnection>('/api/whatsapp/connections', {
+        method: 'POST',
+        body: JSON.stringify({ name: instanceName.trim() }),
+      });
+      setShowCreateForm(false);
+      await fetchConnections();
+      await loadQR(connection.instance_key);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível criar a instância.');
+    } finally {
+      setCreating(false);
+    }
+  };
 
   useEffect(() => {
     fetchConnections();
@@ -109,14 +136,45 @@ export default function Connections() {
           <h1 className="text-2xl font-bold text-slate-900">Conexões WhatsApp</h1>
           <p className="mt-1 text-slate-500">Gerencie suas instâncias e leia o QR Code.</p>
         </div>
-        <button
-          onClick={fetchConnections}
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-        >
-          <RefreshCcw className={cn('h-4 w-4', loading && 'animate-spin')} />
-          Atualizar Conexões
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setShowCreateForm((current) => !current)}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+          >
+            <Plus className="h-4 w-4" />
+            Criar instância
+          </button>
+          <button
+            onClick={fetchConnections}
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            <RefreshCcw className={cn('h-4 w-4', loading && 'animate-spin')} />
+            Atualizar conexões
+          </button>
+        </div>
       </div>
+
+      {showCreateForm && (
+        <form onSubmit={createInstance} className="flex flex-col gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4 sm:flex-row sm:items-end">
+          <label className="flex-1 text-sm font-semibold text-slate-700">
+            Nome da instância
+            <input
+              value={instanceName}
+              onChange={(event) => setInstanceName(event.target.value)}
+              required
+              maxLength={255}
+              className="mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-normal outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={creating || !instanceName.trim()}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+          >
+            {creating ? 'Criando...' : 'Criar e gerar QR Code'}
+          </button>
+        </form>
+      )}
 
       {error && <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
