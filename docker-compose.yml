@@ -62,6 +62,7 @@ services:
     environment:
       PORT: 3001
       ALLOWED_ORIGINS: "https://woogabinete.consultio.com.br"
+      APP_URL: "${APP_URL:-https://woogabinete.consultio.com.br}"
       DATABASE_URL: "${DATABASE_URL:-file:/app/data/whatsapp_sessions.db?_pragma=foreign_keys(1)}"
       SUPABASE_URL: "${SUPABASE_URL}"
       SUPABASE_SERVICE_ROLE_KEY: "${SUPABASE_SERVICE_ROLE_KEY}"

@@ -94,11 +94,15 @@ interface CloudAPIStatus {
 }
 
 const getBaseUrl = () => {
-  let baseUrl = import.meta.env.VITE_WHATSAPP_SERVICE_URL || 'http://localhost:3001';
+  let baseUrl = (import.meta.env.VITE_WHATSAPP_SERVICE_URL || '').trim();
+  const isLocalPage = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  if (!isLocalPage && /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(baseUrl)) {
+    baseUrl = '';
+  }
   if (baseUrl && !baseUrl.startsWith('http')) {
     baseUrl = `https://${baseUrl}`;
   }
-  return baseUrl;
+  return baseUrl.replace(/\/$/, '');
 };
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {

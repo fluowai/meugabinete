@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, QrCode, RefreshCcw, Smartphone } from 'lucide-react';
+import { CheckCircle2, Plus, QrCode, RefreshCcw, Send, Smartphone } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 
@@ -16,6 +16,26 @@ interface WhatsAppConnection {
   profile_picture_url?: string;
   last_seen_at?: string;
   last_connected_at?: string;
+}
+
+interface CloudAPIStatus {
+  status: string;
+  provider: string;
+  phone_number_id: string;
+  business_account_id: string;
+  webhook_registered: boolean;
+  version: string;
+  webhook_url?: string;
+  configured?: boolean;
+  missing_fields?: string[];
+}
+
+interface CloudTemplate {
+  id: string;
+  name: string;
+  status: string;
+  category: string;
+  language: string;
 }
 
 const getBaseUrl = () => {
@@ -61,13 +81,21 @@ const formatPhone = (phone?: string) => {
 
 export default function Connections() {
   const [connections, setConnections] = useState<WhatsAppConnection[]>([]);
+  const [cloudStatus, setCloudStatus] = useState<CloudAPIStatus | null>(null);
+  const [cloudTemplates, setCloudTemplates] = useState<CloudTemplate[]>([]);
   const [qrCode, setQrCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingCloudStatus, setLoadingCloudStatus] = useState(false);
+  const [loadingCloudTemplates, setLoadingCloudTemplates] = useState(false);
   const [syncingGroups, setSyncingGroups] = useState(false);
+  const [sendingCloudTest, setSendingCloudTest] = useState(false);
   const [creating, setCreating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [instanceName, setInstanceName] = useState('Instância principal');
+  const [cloudTestPhone, setCloudTestPhone] = useState('');
+  const [cloudTestMessage, setCloudTestMessage] = useState('Teste de integração da API Oficial do WhatsApp.');
   const [error, setError] = useState('');
+  const [cloudMessage, setCloudMessage] = useState('');
 
   const fetchConnections = useCallback(async () => {
     setLoading(true);
@@ -80,6 +108,34 @@ export default function Connections() {
       setError(`Não foi possível carregar as conexões: ${detail}.`);
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const fetchCloudStatus = useCallback(async () => {
+    setLoadingCloudStatus(true);
+    setCloudMessage('');
+    try {
+      const data = await apiFetch<CloudAPIStatus>('/api/whatsapp/cloud-status');
+      setCloudStatus(data);
+    } catch (err) {
+      setCloudStatus(null);
+      setCloudMessage(err instanceof Error ? err.message : 'Não foi possível carregar a API Oficial.');
+    } finally {
+      setLoadingCloudStatus(false);
+    }
+  }, []);
+
+  const fetchCloudTemplates = useCallback(async () => {
+    setLoadingCloudTemplates(true);
+    setCloudMessage('');
+    try {
+      const data = await apiFetch<CloudTemplate[]>('/api/whatsapp/cloud/templates');
+      setCloudTemplates(data);
+    } catch (err) {
+      setCloudTemplates([]);
+      setCloudMessage(err instanceof Error ? err.message : 'Não foi possível carregar os templates oficiais.');
+    } finally {
+      setLoadingCloudTemplates(false);
     }
   }, []);
 
@@ -104,7 +160,19 @@ export default function Connections() {
 
   useEffect(() => {
     fetchConnections();
-  }, [fetchConnections]);
+    fetchCloudStatus();
+  }, [fetchConnections, fetchCloudStatus]);
+
+  useEffect(() => {
+    if (cloudStatus?.status === 'connected' || cloudStatus?.status === 'configured') {
+      fetchCloudTemplates();
+    }
+  }, [cloudStatus?.status, fetchCloudTemplates]);
+
+  const refreshAll = () => {
+    fetchConnections();
+    fetchCloudStatus();
+  };
 
   const loadQR = async (instanceKey: string) => {
     setError('');
@@ -112,7 +180,7 @@ export default function Connections() {
       const data = await apiFetch<{ qr: string }>(`/api/whatsapp/connections/${instanceKey}/qr`);
       setQrCode(data.qr || '');
     } catch {
-      setError('Nao foi possivel carregar o QR Code.');
+      setError('Não foi possível carregar o QR Code.');
     }
   };
 
@@ -123,14 +191,37 @@ export default function Connections() {
       await apiFetch('/api/whatsapp/connections/default/sync-groups', { method: 'POST' });
       await fetchConnections();
     } catch {
-      setError('Nao foi possivel sincronizar os grupos.');
+      setError('Não foi possível sincronizar os grupos.');
     } finally {
       setSyncingGroups(false);
     }
   };
 
+  const sendCloudTest = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSendingCloudTest(true);
+    setCloudMessage('');
+    try {
+      await apiFetch('/api/whatsapp/cloud/send-text', {
+        method: 'POST',
+        body: JSON.stringify({
+          to: cloudTestPhone.replace(/\D/g, ''),
+          text: cloudTestMessage.trim(),
+        }),
+      });
+      setCloudMessage('Mensagem de teste enviada pela API Oficial.');
+    } catch (err) {
+      setCloudMessage(err instanceof Error ? err.message : 'Não foi possível enviar pela API Oficial.');
+    } finally {
+      setSendingCloudTest(false);
+    }
+  };
+
+  const cloudConfigured = cloudStatus?.status === 'connected' || cloudStatus?.status === 'configured';
+  const cloudConnected = cloudStatus?.status === 'connected';
+
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col gap-4">
+    <div className="flex min-h-[calc(100vh-8rem)] flex-col gap-4">
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Conexões WhatsApp</h1>
@@ -145,11 +236,11 @@ export default function Connections() {
             Criar instância
           </button>
           <button
-            onClick={fetchConnections}
+            onClick={refreshAll}
             className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
           >
-            <RefreshCcw className={cn('h-4 w-4', loading && 'animate-spin')} />
-            Atualizar conexões
+            <RefreshCcw className={cn('h-4 w-4', (loading || loadingCloudStatus) && 'animate-spin')} />
+            Atualizar integrações
           </button>
         </div>
       </div>
@@ -177,6 +268,108 @@ export default function Connections() {
       )}
 
       {error && <div className="rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="font-bold text-slate-900">WhatsApp Web (whatsmeow)</h2>
+              <p className="mt-1 text-sm text-slate-500">API não oficial via QR Code, usada para ler conversas, grupos e mensagens.</p>
+            </div>
+            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">Não oficial</span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+            <div className="rounded-lg bg-slate-50 p-3">
+              <p className="text-xs font-semibold uppercase text-slate-400">Instâncias</p>
+              <p className="mt-1 text-lg font-bold text-slate-900">{connections.length}</p>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3">
+              <p className="text-xs font-semibold uppercase text-slate-400">Conectadas</p>
+              <p className="mt-1 text-lg font-bold text-slate-900">{connections.filter((item) => item.connected).length}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
+            <div>
+              <h2 className="font-bold text-slate-900">WhatsApp Cloud API (Oficial)</h2>
+              <p className="mt-1 text-sm text-slate-500">API oficial da Meta para envio de mensagens, templates e webhooks.</p>
+            </div>
+            <span
+              className={cn(
+                'w-fit rounded-full px-3 py-1 text-xs font-bold',
+                cloudConnected ? 'bg-emerald-50 text-emerald-700' : cloudConfigured ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700',
+              )}
+            >
+              {loadingCloudStatus ? 'Verificando...' : cloudConnected ? 'Conectada' : cloudConfigured ? 'Configurada' : 'Não configurada'}
+            </span>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+            <div className="rounded-lg bg-slate-50 p-3">
+              <p className="text-xs font-semibold uppercase text-slate-400">Phone Number ID</p>
+              <p className="mt-1 break-all font-mono text-slate-900">{cloudStatus?.phone_number_id || '-'}</p>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3">
+              <p className="text-xs font-semibold uppercase text-slate-400">Business Account ID</p>
+              <p className="mt-1 break-all font-mono text-slate-900">{cloudStatus?.business_account_id || '-'}</p>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3">
+              <p className="text-xs font-semibold uppercase text-slate-400">Webhook</p>
+              <p className={cn('mt-1 font-semibold', cloudStatus?.webhook_registered ? 'text-emerald-700' : 'text-red-700')}>
+                {cloudStatus?.webhook_registered ? 'Registrado' : 'Não registrado'}
+              </p>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3">
+              <p className="text-xs font-semibold uppercase text-slate-400">Templates</p>
+              <p className="mt-1 font-semibold text-slate-900">{loadingCloudTemplates ? 'Carregando...' : cloudTemplates.length}</p>
+            </div>
+          </div>
+
+          {cloudStatus?.webhook_url && (
+            <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">
+              Webhook para configurar na Meta: <span className="font-mono">{cloudStatus.webhook_url}</span>
+            </div>
+          )}
+
+          {!cloudConfigured && cloudStatus?.missing_fields && cloudStatus.missing_fields.length > 0 && (
+            <div className="mt-3 rounded-lg border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800">
+              Configure no ambiente do servidor: <span className="font-mono">{cloudStatus.missing_fields.join(', ')}</span>
+            </div>
+          )}
+
+          {cloudMessage && (
+            <div className={cn('mt-3 rounded-lg border px-3 py-2 text-sm', cloudMessage.includes('enviada') ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : 'border-red-100 bg-red-50 text-red-700')}>
+              {cloudMessage}
+            </div>
+          )}
+
+          <form onSubmit={sendCloudTest} className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-[180px_1fr_auto]">
+            <input
+              value={cloudTestPhone}
+              onChange={(event) => setCloudTestPhone(event.target.value)}
+              placeholder="5599999999999"
+              disabled={!cloudConfigured || sendingCloudTest}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 disabled:bg-slate-100"
+            />
+            <input
+              value={cloudTestMessage}
+              onChange={(event) => setCloudTestMessage(event.target.value)}
+              disabled={!cloudConfigured || sendingCloudTest}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 disabled:bg-slate-100"
+            />
+            <button
+              type="submit"
+              disabled={!cloudConfigured || !cloudTestPhone.trim() || !cloudTestMessage.trim() || sendingCloudTest}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {cloudConnected ? <CheckCircle2 className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+              {sendingCloudTest ? 'Enviando...' : 'Testar oficial'}
+            </button>
+          </form>
+        </div>
+      </section>
 
       <section className="grid min-h-0 flex-1 grid-cols-1 gap-4 xl:grid-cols-[1fr_420px]">
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">

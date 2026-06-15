@@ -903,6 +903,7 @@ func (s *APIServer) handleCloudStatus(w http.ResponseWriter, r *http.Request) {
 	businessAcctID := ""
 	apiVersion := ""
 	webhookRegistered := s.webhookServer != nil
+	missingFields := []string{}
 
 	if officialapi.IsCloudAPIConfigured() {
 		client := officialapi.GetClient()
@@ -914,6 +915,28 @@ func (s *APIServer) handleCloudStatus(w http.ResponseWriter, r *http.Request) {
 		} else {
 			status = "configured"
 		}
+	} else {
+		if strings.TrimSpace(os.Getenv("WHATSAPP_ACCESS_TOKEN")) == "" {
+			missingFields = append(missingFields, "WHATSAPP_ACCESS_TOKEN")
+		}
+		if strings.TrimSpace(os.Getenv("WHATSAPP_PHONE_NUMBER_ID")) == "" {
+			missingFields = append(missingFields, "WHATSAPP_PHONE_NUMBER_ID")
+		}
+		if strings.TrimSpace(os.Getenv("WHATSAPP_BUSINESS_ACCOUNT_ID")) == "" {
+			missingFields = append(missingFields, "WHATSAPP_BUSINESS_ACCOUNT_ID")
+		}
+		if strings.TrimSpace(os.Getenv("WHATSAPP_WEBHOOK_VERIFY_TOKEN")) == "" {
+			missingFields = append(missingFields, "WHATSAPP_WEBHOOK_VERIFY_TOKEN")
+		}
+		if strings.TrimSpace(os.Getenv("WHATSAPP_APP_SECRET")) == "" {
+			missingFields = append(missingFields, "WHATSAPP_APP_SECRET")
+		}
+	}
+
+	appURL := strings.TrimRight(strings.TrimSpace(os.Getenv("APP_URL")), "/")
+	webhookURL := ""
+	if appURL != "" {
+		webhookURL = appURL + "/api/webhook/whatsapp"
 	}
 
 	respondJSON(w, map[string]interface{}{
@@ -923,6 +946,9 @@ func (s *APIServer) handleCloudStatus(w http.ResponseWriter, r *http.Request) {
 		"business_account_id": businessAcctID,
 		"webhook_registered":  webhookRegistered,
 		"version":             apiVersion,
+		"configured":          status != "not_configured",
+		"missing_fields":      missingFields,
+		"webhook_url":         webhookURL,
 	})
 }
 
