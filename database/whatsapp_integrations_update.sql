@@ -1,4 +1,7 @@
 -- WhatsApp connections, enriched messages/groups and free CEP lookup support.
+-- If this is the first WhatsApp migration in the project, prefer running
+-- database/whatsapp_atendimentos_schema_fix.sql, which creates the base tables
+-- before applying compatibility ALTER statements.
 
 ALTER TABLE whatsapp_chats
     ADD COLUMN IF NOT EXISTS country_code VARCHAR(8),

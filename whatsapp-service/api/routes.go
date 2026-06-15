@@ -642,12 +642,17 @@ func (s *APIServer) handleWhatsAppChats(w http.ResponseWriter, r *http.Request) 
 	}
 
 	chatType := r.URL.Query().Get("type")
-	query := "select=*&order=last_message_at.desc.nullslast&limit=200"
+	query := "select=*&order=last_message_at.desc&limit=200"
 	if chatType == "direct" || chatType == "group" {
 		query += "&chat_type=eq." + url.QueryEscape(chatType)
 	}
 	body, err := database.FetchFromSupabase("whatsapp_chats", query)
 	if err != nil {
+		fmt.Printf("Failed to fetch WhatsApp chats: %v\n", err)
+		if isMissingWhatsAppSchema(err) {
+			respondJSON(w, []map[string]interface{}{})
+			return
+		}
 		respondError(w, http.StatusInternalServerError, "Failed to fetch chats")
 		return
 	}
@@ -674,6 +679,11 @@ func (s *APIServer) handleWhatsAppMessages(w http.ResponseWriter, r *http.Reques
 
 	body, err := database.FetchFromSupabase("whatsapp_messages", query)
 	if err != nil {
+		fmt.Printf("Failed to fetch WhatsApp messages: %v\n", err)
+		if isMissingWhatsAppSchema(err) {
+			respondJSON(w, []map[string]interface{}{})
+			return
+		}
 		respondError(w, http.StatusInternalServerError, "Failed to fetch messages")
 		return
 	}
@@ -697,6 +707,11 @@ func (s *APIServer) handleWhatsAppChatMessages(w http.ResponseWriter, r *http.Re
 	query := "select=*&chat_id=eq." + chatID + "&order=received_at.asc&limit=300"
 	body, err := database.FetchFromSupabase("whatsapp_messages", query)
 	if err != nil {
+		fmt.Printf("Failed to fetch WhatsApp chat messages: %v\n", err)
+		if isMissingWhatsAppSchema(err) {
+			respondJSON(w, []map[string]interface{}{})
+			return
+		}
 		respondError(w, http.StatusInternalServerError, "Failed to fetch messages")
 		return
 	}
@@ -732,6 +747,11 @@ func (s *APIServer) handleWhatsAppGroupAction(w http.ResponseWriter, r *http.Req
 		query := "select=*&group_jid=eq." + url.QueryEscape(groupJID) + "&order=last_seen_at.desc&limit=500"
 		body, err := database.FetchFromSupabase("whatsapp_group_participants", query)
 		if err != nil {
+			fmt.Printf("Failed to fetch WhatsApp group participants: %v\n", err)
+			if isMissingWhatsAppSchema(err) {
+				respondJSON(w, []map[string]interface{}{})
+				return
+			}
 			respondError(w, http.StatusInternalServerError, "Failed to fetch participants")
 			return
 		}
@@ -1228,6 +1248,18 @@ func respondError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(map[string]string{"error": message})
+}
+
+func isMissingWhatsAppSchema(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "relation") && strings.Contains(message, "does not exist") ||
+		strings.Contains(message, "could not find the table") ||
+		strings.Contains(message, "could not find a relationship") ||
+		strings.Contains(message, "column") && strings.Contains(message, "does not exist") ||
+		strings.Contains(message, "schema cache")
 }
 
 func extractToken(r *http.Request) string {
