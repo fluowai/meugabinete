@@ -405,8 +405,6 @@ func (s *APIServer) handleWhatsAppConnections(w http.ResponseWriter, r *http.Req
 		snapshot := s.connectionSnapshot(request.Name)
 		if _, err := database.UpsertToSupabase("whatsapp_connections", "instance_key", snapshot); err != nil {
 			fmt.Printf("Failed to create WhatsApp connection: %v\n", err)
-			respondError(w, http.StatusBadGateway, "Failed to persist WhatsApp instance")
-			return
 		}
 		respondJSONWithStatus(w, http.StatusCreated, snapshot)
 		return
