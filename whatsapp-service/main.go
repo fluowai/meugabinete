@@ -53,7 +53,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize WhatsApp instances: %v", err)
 	}
-	apiServer := api.NewAPIServer(instanceManager)
+
+	var apiOptions []api.APIServerOption
 
 	if officialapi.IsCloudAPIConfigured() {
 		cloudClient := officialapi.GetClient()
@@ -76,7 +77,12 @@ func main() {
 		})
 
 		fmt.Println("[Cloud API] Webhook handlers registered")
+		apiOptions = append(apiOptions, api.WithWebhookServer(ws))
+		if provider, err := officialapi.GetActiveProvider(); err == nil {
+			apiOptions = append(apiOptions, api.WithCloudProvider(provider))
+		}
 	}
+	apiServer := api.NewAPIServer(instanceManager, apiOptions...)
 
 	allowedOrigins := os.Getenv("ALLOWED_ORIGINS")
 	if allowedOrigins == "" {

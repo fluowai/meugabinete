@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fluowai/meugabinete/whatsapp-service/ai"
@@ -34,6 +35,61 @@ type ContactInfo struct {
 	Phone           string
 	CountryCode     string
 	ProfilePhotoURL string
+}
+
+type ProcessingStats struct {
+	TotalEvents    int       `json:"total_events"`
+	TotalSaved     int       `json:"total_saved"`
+	LastEventAt    time.Time `json:"last_event_at,omitempty"`
+	LastSavedAt    time.Time `json:"last_saved_at,omitempty"`
+	LastMessageID  string    `json:"last_message_id,omitempty"`
+	LastChatJID    string    `json:"-"`
+	LastFromMe     bool      `json:"last_from_me"`
+	LastSaveError  string    `json:"last_save_error,omitempty"`
+	LastEventError string    `json:"last_event_error,omitempty"`
+}
+
+var processingStats = struct {
+	sync.Mutex
+	value ProcessingStats
+}{}
+
+func GetProcessingStats() ProcessingStats {
+	processingStats.Lock()
+	defer processingStats.Unlock()
+	return processingStats.value
+}
+
+func markMessageEvent(messageID string, chatJID string, fromMe bool) {
+	processingStats.Lock()
+	defer processingStats.Unlock()
+	processingStats.value.TotalEvents++
+	processingStats.value.LastEventAt = time.Now().UTC()
+	processingStats.value.LastMessageID = messageID
+	processingStats.value.LastChatJID = chatJID
+	processingStats.value.LastFromMe = fromMe
+	processingStats.value.LastEventError = ""
+}
+
+func markMessageSaved() {
+	processingStats.Lock()
+	defer processingStats.Unlock()
+	processingStats.value.TotalSaved++
+	processingStats.value.LastSavedAt = time.Now().UTC()
+	processingStats.value.LastSaveError = ""
+}
+
+func markMessageError(message string) {
+	processingStats.Lock()
+	defer processingStats.Unlock()
+	processingStats.value.LastSaveError = message
+}
+
+func markEventError(message string) {
+	processingStats.Lock()
+	defer processingStats.Unlock()
+	processingStats.value.LastEventAt = time.Now().UTC()
+	processingStats.value.LastEventError = message
 }
 
 func NormalizePhone(phone string) (normalized string, digits string) {
@@ -74,10 +130,12 @@ func SendReply(client *whatsmeow.Client, jid types.JID, text string) {
 
 func ProcessMessage(client *whatsmeow.Client, v *events.Message) {
 	if v.Info.Chat.Server != types.DefaultUserServer && v.Info.Chat.Server != types.LegacyUserServer && v.Info.Chat.Server != types.GroupServer {
+		markEventError("unsupported chat server: " + v.Info.Chat.Server)
 		return
 	}
 
 	chatJID := v.Info.Chat.String()
+	markMessageEvent(v.Info.ID, chatJID, v.Info.IsFromMe)
 	isGroup := v.Info.IsGroup || v.Info.Chat.Server == types.GroupServer
 	senderInfo := resolveSenderInfo(client, v.Info, isGroup)
 	senderJID := senderInfo.JID.String()
@@ -189,6 +247,7 @@ func upsertChat(chatJID string, chatType string, displayName string, phone strin
 	resp, err := database.UpsertToSupabase("whatsapp_chats", "chat_jid", payload)
 	if err != nil {
 		fmt.Printf("Erro ao salvar conversa: %v\n", err)
+		markMessageError("whatsapp_chats: " + err.Error())
 		return ""
 	}
 	return extractID(resp)
@@ -210,6 +269,7 @@ func upsertGroupParticipant(groupJID string, participantJID string, phone string
 	})
 	if err != nil {
 		fmt.Printf("Erro ao salvar participante de grupo: %v\n", err)
+		markMessageError("whatsapp_group_participants: " + err.Error())
 	}
 }
 
@@ -238,8 +298,10 @@ func saveMessage(chatID string, chatJID string, senderJID string, senderPhone st
 	resp, err := database.UpsertToSupabase("whatsapp_messages", "message_id", payload)
 	if err != nil {
 		fmt.Printf("Erro ao salvar mensagem: %v\n", err)
+		markMessageError("whatsapp_messages: " + err.Error())
 		return ""
 	}
+	markMessageSaved()
 	return extractID(resp)
 }
 

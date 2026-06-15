@@ -100,8 +100,8 @@ func FetchFromSupabase(table string, query string) ([]byte, error) {
 
 	url := fmt.Sprintf("%s/rest/v1/%s", supabaseURL, table)
 	if strings.TrimSpace(query) != "" {
-		// Rejeita queries com caracteres potencialmente perigosos
-		disallowed := regexp.MustCompile(`[;'"\-\-]`)
+		// Rejeita caracteres perigosos para a URL REST, mantendo hifens usados em UUIDs.
+		disallowed := regexp.MustCompile(`[;'"\\]`)
 		if disallowed.MatchString(query) {
 			return nil, fmt.Errorf("query contém caracteres não permitidos")
 		}

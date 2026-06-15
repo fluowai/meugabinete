@@ -170,6 +170,7 @@ func (s *APIServer) registerRoutes() {
 	s.router.HandleFunc("/api/whatsapp/groups/", s.requireAuth(s.handleWhatsAppGroupAction))
 	s.router.HandleFunc("/api/whatsapp/messages", s.requireAuth(s.handleWhatsAppMessages))
 	s.router.HandleFunc("/api/whatsapp/messages/", s.requireAuth(s.handleWhatsAppMessageAction))
+	s.router.HandleFunc("/api/whatsapp/debug/persist-test", s.requireAuth(s.handleWhatsAppPersistTest))
 	s.router.HandleFunc("/api/agents", s.requireAuth(s.handleAgents))
 
 	// Webhook for WhatsApp Cloud API (no auth - called by Meta)
@@ -369,6 +370,7 @@ func (s *APIServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	} else {
 		status["whatsapp"] = "disconnected"
 	}
+	status["whatsapp_processing"] = handler.GetProcessingStats()
 
 	if s.cloudProvider != nil {
 		if s.cloudProvider.IsConnected() {
@@ -716,6 +718,69 @@ func (s *APIServer) handleWhatsAppChatMessages(w http.ResponseWriter, r *http.Re
 		return
 	}
 	respondRawJSON(w, body)
+}
+
+func (s *APIServer) handleWhatsAppPersistTest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	now := time.Now().UTC()
+	messageID := fmt.Sprintf("debug-%d", now.UnixNano())
+	chatJID := "5548991138937@s.whatsapp.net"
+
+	chatResp, err := database.UpsertToSupabase("whatsapp_chats", "chat_jid", map[string]interface{}{
+		"chat_jid":         chatJID,
+		"chat_type":        "direct",
+		"display_name":     "Debug WhatsApp",
+		"normalized_phone": "5548991138937",
+		"country_code":     "55",
+		"last_message":     "Teste de persistencia WhatsApp",
+		"last_message_at":  now.Format(time.RFC3339),
+	})
+	if err != nil {
+		respondJSONWithStatus(w, http.StatusBadGateway, map[string]interface{}{
+			"ok":    false,
+			"stage": "whatsapp_chats",
+			"error": err.Error(),
+		})
+		return
+	}
+
+	var chat map[string]interface{}
+	_ = json.Unmarshal(chatResp, &chat)
+	chatID, _ := chat["id"].(string)
+
+	messageResp, err := database.UpsertToSupabase("whatsapp_messages", "message_id", map[string]interface{}{
+		"chat_id":             nilIfEmptyString(chatID),
+		"message_id":          messageID,
+		"chat_jid":            chatJID,
+		"sender_jid":          "5548991138937@s.whatsapp.net",
+		"sender_phone":        "5548991138937",
+		"sender_country_code": "55",
+		"sender_display_name": "Debug WhatsApp",
+		"is_group":            false,
+		"message_type":        "text",
+		"text_content":        "Teste de persistencia WhatsApp",
+		"mentioned_phones":    []string{},
+		"received_at":         now.Format(time.RFC3339),
+	})
+	if err != nil {
+		respondJSONWithStatus(w, http.StatusBadGateway, map[string]interface{}{
+			"ok":    false,
+			"stage": "whatsapp_messages",
+			"error": err.Error(),
+		})
+		return
+	}
+
+	respondJSON(w, map[string]interface{}{
+		"ok":         true,
+		"chat":       json.RawMessage(chatResp),
+		"message":    json.RawMessage(messageResp),
+		"message_id": messageID,
+	})
 }
 
 func (s *APIServer) handleWhatsAppGroupAction(w http.ResponseWriter, r *http.Request) {
