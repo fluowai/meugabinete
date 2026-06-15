@@ -14,6 +14,7 @@ import {
   Users,
   Wifi,
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 
@@ -201,6 +202,8 @@ export default function WhatsAppHub() {
   const [cloudStatus, setCloudStatus] = useState<CloudAPIStatus | null>(null);
   const [loadingCloudStatus, setLoadingCloudStatus] = useState(false);
   const [qrCode, setQrCode] = useState('');
+  const [qrInstanceKey, setQrInstanceKey] = useState('');
+  const [qrStatus, setQrStatus] = useState('');
   const [loadingConnections, setLoadingConnections] = useState(false);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
   const [creatingRequestId, setCreatingRequestId] = useState<string | null>(null);
@@ -314,6 +317,19 @@ export default function WhatsAppHub() {
     fetchParticipants(selectedChat);
   }, [selectedChat, fetchMessages, fetchParticipants]);
 
+  useEffect(() => {
+    if (activeTab !== 'direct' && activeTab !== 'group' && activeTab !== 'messages') return;
+    const interval = window.setInterval(() => {
+      if (activeTab === 'direct' || activeTab === 'group') {
+        fetchChats(activeTab);
+        fetchMessages(selectedChat);
+      } else {
+        fetchAllMessages();
+      }
+    }, 5000);
+    return () => window.clearInterval(interval);
+  }, [activeTab, fetchAllMessages, fetchChats, fetchMessages, selectedChat]);
+
   const filteredChats = useMemo(() => {
     const needle = search.trim().toLowerCase();
     if (!needle) return chats;
@@ -350,29 +366,37 @@ export default function WhatsAppHub() {
     if (activeTab === 'messages') fetchAllMessages();
   };
 
-  const loadQR = async (instanceKey: string) => {
+  const loadQR = useCallback(async (instanceKey: string) => {
+    setQrInstanceKey(instanceKey);
     setError('');
     try {
-      const data = await apiFetch<{ qr: string }>(`/api/whatsapp/connections/${instanceKey}/qr`);
+      const data = await apiFetch<{ qr: string; status: string; connected: boolean }>(`/api/whatsapp/connections/${instanceKey}/qr`);
       setQrCode(data.qr || '');
+      setQrStatus(data.status || 'pairing');
+      if (data.connected) await fetchConnections();
     } catch {
       setError('Nao foi possivel carregar o QR Code.');
     }
-  };
+  }, [fetchConnections]);
 
   useEffect(() => {
-    if (!qrCode) return;
-    const interval = setInterval(() => {
-      loadQR('default');
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [qrCode]);
+    if (!qrInstanceKey || qrStatus === 'connected') return;
+    const interval = window.setInterval(() => {
+      loadQR(qrInstanceKey);
+    }, 5000);
+    return () => window.clearInterval(interval);
+  }, [loadQR, qrInstanceKey, qrStatus]);
 
-  const syncGroups = async () => {
+  const syncGroups = async (instanceKey?: string) => {
+    const targetKey = instanceKey || connections.find((connection) => connection.connected)?.instance_key;
+    if (!targetKey) {
+      setError('Conecte uma instancia antes de sincronizar os grupos.');
+      return;
+    }
     setSyncingGroups(true);
     setError('');
     try {
-      await apiFetch('/api/whatsapp/connections/default/sync-groups', { method: 'POST' });
+      await apiFetch(`/api/whatsapp/connections/${targetKey}/sync-groups`, { method: 'POST' });
       await fetchConnections();
     } catch {
       setError('Nao foi possivel sincronizar os grupos.');
@@ -652,25 +676,29 @@ export default function WhatsAppHub() {
                   </div>
                   {conn.jid && <p className="mt-2 text-xs text-slate-400">JID: {conn.jid}</p>}
                   {conn.last_seen_at && <p className="text-xs text-slate-400">Ultimo visto: {formatDateTime(conn.last_seen_at)}</p>}
+                  <div className="mt-3 flex gap-2">
+                    {!conn.connected && (
+                      <button onClick={() => loadQR(conn.instance_key)} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700">
+                        <QrCode className="h-4 w-4" />
+                        Exibir QR real
+                      </button>
+                    )}
+                    {conn.connected && (
+                      <button onClick={() => syncGroups(conn.instance_key)} disabled={syncingGroups} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
+                        <RefreshCcw className={cn('h-4 w-4', syncingGroups && 'animate-spin')} />
+                        Sincronizar grupos
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
-              <div className="flex gap-2">
-                <button onClick={() => loadQR('default')} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">
-                  <QrCode className="h-4 w-4" />
-                  Exibir QR Code
-                </button>
-                <button onClick={syncGroups} disabled={syncingGroups} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">
-                  <RefreshCcw className={cn('h-4 w-4', syncingGroups && 'animate-spin')} />
-                  Sincronizar grupos
-                </button>
-              </div>
               {qrCode && (
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-center">
                   <p className="mb-2 text-sm font-bold text-slate-700">Escaneie o QR Code com o WhatsApp</p>
                   <div className="inline-block rounded-lg bg-white p-2 shadow-sm">
-                    <QrCode className="h-48 w-48" />
+                    <QRCodeSVG value={qrCode} size={240} level="M" includeMargin />
                   </div>
-                  <p className="mt-2 break-all text-xs text-slate-400">{qrCode}</p>
+                  <p className="mt-2 text-xs text-slate-500">Leia com WhatsApp &gt; Aparelhos conectados.</p>
                 </div>
               )}
             </div>

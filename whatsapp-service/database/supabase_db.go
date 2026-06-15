@@ -38,6 +38,9 @@ func saveToSupabase(table string, conflictTarget string, data interface{}) ([]by
 	supabaseURL := os.Getenv("SUPABASE_URL")
 	supabaseKey := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
 	if supabaseURL == "" || supabaseKey == "" {
+		if supportsLocalWhatsAppFallback(table) {
+			return saveLocalWhatsAppRecord(table, conflictTarget, data)
+		}
 		return nil, fmt.Errorf("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórios")
 	}
 
@@ -68,12 +71,18 @@ func saveToSupabase(table string, conflictTarget string, data interface{}) ([]by
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
+		if supportsLocalWhatsAppFallback(table) {
+			return saveLocalWhatsAppRecord(table, conflictTarget, data)
+		}
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(resp.Body)
+		if supportsLocalWhatsAppFallback(table) {
+			return saveLocalWhatsAppRecord(table, conflictTarget, data)
+		}
 		return nil, fmt.Errorf("erro no supabase (%d): %s", resp.StatusCode, string(body))
 	}
 
@@ -82,7 +91,13 @@ func saveToSupabase(table string, conflictTarget string, data interface{}) ([]by
 	json.NewDecoder(resp.Body).Decode(&responseBody)
 
 	if len(responseBody) > 0 {
+		if supportsLocalWhatsAppFallback(table) {
+			_, _ = saveLocalWhatsAppRecord(table, conflictTarget, responseBody[0])
+		}
 		return json.Marshal(responseBody[0])
+	}
+	if supportsLocalWhatsAppFallback(table) {
+		_, _ = saveLocalWhatsAppRecord(table, conflictTarget, data)
 	}
 
 	return nil, nil
@@ -95,6 +110,9 @@ func FetchFromSupabase(table string, query string) ([]byte, error) {
 	supabaseURL := os.Getenv("SUPABASE_URL")
 	supabaseKey := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
 	if supabaseURL == "" || supabaseKey == "" {
+		if supportsLocalWhatsAppFallback(table) {
+			return fetchLocalWhatsAppRecords(table, query)
+		}
 		return nil, fmt.Errorf("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórios")
 	}
 
@@ -120,12 +138,18 @@ func FetchFromSupabase(table string, query string) ([]byte, error) {
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
+		if supportsLocalWhatsAppFallback(table) {
+			return fetchLocalWhatsAppRecords(table, query)
+		}
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 300 {
+		if supportsLocalWhatsAppFallback(table) {
+			return fetchLocalWhatsAppRecords(table, query)
+		}
 		return nil, fmt.Errorf("erro no supabase (%d): %s", resp.StatusCode, string(body))
 	}
 

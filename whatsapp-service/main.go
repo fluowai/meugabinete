@@ -15,19 +15,14 @@ import (
 	"github.com/fluowai/meugabinete/whatsapp-service/ai"
 	"github.com/fluowai/meugabinete/whatsapp-service/api"
 	"github.com/fluowai/meugabinete/whatsapp-service/database"
-	"github.com/fluowai/meugabinete/whatsapp-service/handler"
+	"github.com/fluowai/meugabinete/whatsapp-service/instances"
 	"github.com/fluowai/meugabinete/whatsapp-service/official-api"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
-	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store/sqlstore"
-	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 	_ "modernc.org/sqlite"
 )
-
-var latestQR string
-var whatsappClient *whatsmeow.Client
 
 func main() {
 	if err := godotenv.Load(); err != nil {
@@ -53,60 +48,12 @@ func main() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
-	deviceStore, err := container.GetFirstDevice(context.Background())
+	instanceLog := waLog.Stdout("WhatsApp", "INFO", false)
+	instanceManager, err := instances.NewManager(container, instanceLog)
 	if err != nil {
-		log.Fatalf("Failed to get device store: %v", err)
+		log.Fatalf("Failed to initialize WhatsApp instances: %v", err)
 	}
-
-	clientLog := waLog.Stdout("Client", "INFO", false)
-	whatsappClient = whatsmeow.NewClient(deviceStore, clientLog)
-
-	whatsappClient.AddEventHandler(func(evt interface{}) {
-		switch v := evt.(type) {
-		case *events.Message:
-			handler.ProcessMessage(whatsappClient, v)
-		}
-	})
-
-	if whatsappClient.Store.ID == nil {
-		qrChan, err := whatsappClient.GetQRChannel(context.Background())
-		if err != nil {
-			log.Fatalf("Failed to get QR channel: %v", err)
-		}
-
-		err = whatsappClient.Connect()
-		if err != nil {
-			log.Fatalf("Failed to connect to WhatsApp: %v", err)
-		}
-
-		go func() {
-			for evt := range qrChan {
-				if evt.Event == "code" {
-					latestQR = evt.Code
-					os.Setenv("LATEST_QR", latestQR)
-					fmt.Println(">>> QR Code generated")
-				} else if evt.Event == "success" {
-					fmt.Println(">>> WhatsApp connected successfully")
-					latestQR = ""
-					os.Setenv("LATEST_QR", "")
-				} else if evt.Event == "timeout" {
-					fmt.Println(">>> QR Code scan timed out")
-					latestQR = ""
-					os.Setenv("LATEST_QR", "")
-				}
-			}
-		}()
-	} else {
-		err = whatsappClient.Connect()
-		if err != nil {
-			log.Fatalf("Failed to connect to WhatsApp: %v", err)
-		}
-		latestQR = ""
-		os.Setenv("LATEST_QR", "")
-		fmt.Println("WhatsApp client connected (existing session)")
-	}
-
-	apiServer := api.NewAPIServer(whatsappClient)
+	apiServer := api.NewAPIServer(instanceManager)
 
 	if officialapi.IsCloudAPIConfigured() {
 		cloudClient := officialapi.GetClient()
@@ -184,7 +131,10 @@ func main() {
 		log.Printf("HTTP server shutdown error: %v", err)
 	}
 
-	whatsappClient.Disconnect()
+	instanceManager.Close()
+	if err := container.Close(); err != nil {
+		log.Printf("Failed to close WhatsApp session database: %v", err)
+	}
 	fmt.Println("Shutdown complete")
 }
 

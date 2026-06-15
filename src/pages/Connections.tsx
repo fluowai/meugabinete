@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Plus, QrCode, RefreshCcw, Send, Smartphone } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { cn } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 
@@ -84,6 +85,9 @@ export default function Connections() {
   const [cloudStatus, setCloudStatus] = useState<CloudAPIStatus | null>(null);
   const [cloudTemplates, setCloudTemplates] = useState<CloudTemplate[]>([]);
   const [qrCode, setQrCode] = useState('');
+  const [qrStatus, setQrStatus] = useState('');
+  const [selectedInstanceKey, setSelectedInstanceKey] = useState('');
+  const [loadingQR, setLoadingQR] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingCloudStatus, setLoadingCloudStatus] = useState(false);
   const [loadingCloudTemplates, setLoadingCloudTemplates] = useState(false);
@@ -174,21 +178,40 @@ export default function Connections() {
     fetchCloudStatus();
   };
 
-  const loadQR = async (instanceKey: string) => {
+  const loadQR = useCallback(async (instanceKey: string, silent = false) => {
+    if (!silent) setLoadingQR(true);
+    setSelectedInstanceKey(instanceKey);
     setError('');
     try {
-      const data = await apiFetch<{ qr: string }>(`/api/whatsapp/connections/${instanceKey}/qr`);
+      const data = await apiFetch<{ qr: string; status: string; connected: boolean }>(`/api/whatsapp/connections/${instanceKey}/qr`);
       setQrCode(data.qr || '');
+      setQrStatus(data.status || 'pairing');
+      if (data.connected) await fetchConnections();
     } catch {
       setError('Não foi possível carregar o QR Code.');
+    } finally {
+      if (!silent) setLoadingQR(false);
     }
-  };
+  }, [fetchConnections]);
 
-  const syncGroups = async () => {
+  useEffect(() => {
+    if (!selectedInstanceKey || qrStatus === 'connected') return;
+    const interval = window.setInterval(() => {
+      loadQR(selectedInstanceKey, true);
+    }, 5000);
+    return () => window.clearInterval(interval);
+  }, [loadQR, qrStatus, selectedInstanceKey]);
+
+  const syncGroups = async (instanceKey?: string) => {
+    const targetKey = instanceKey || connections.find((connection) => connection.connected)?.instance_key;
+    if (!targetKey) {
+      setError('Conecte uma instancia antes de sincronizar os grupos.');
+      return;
+    }
     setSyncingGroups(true);
     setError('');
     try {
-      await apiFetch('/api/whatsapp/connections/default/sync-groups', { method: 'POST' });
+      await apiFetch(`/api/whatsapp/connections/${targetKey}/sync-groups`, { method: 'POST' });
       await fetchConnections();
     } catch {
       setError('Não foi possível sincronizar os grupos.');
@@ -379,7 +402,7 @@ export default function Connections() {
               <p className="text-xs text-slate-500">Status das conexoes whatsmeow.</p>
             </div>
             <button
-              onClick={syncGroups}
+              onClick={() => syncGroups()}
               disabled={syncingGroups}
               className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
             >
@@ -437,10 +460,11 @@ export default function Connections() {
                     <td className="px-5 py-4 text-right">
                       <button
                         onClick={() => loadQR(connection.instance_key)}
-                        className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                        disabled={connection.connected || loadingQR}
+                        className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <QrCode className="h-4 w-4" />
-                        Gerar QR Code
+                        {connection.connected ? 'Conectada' : loadingQR && selectedInstanceKey === connection.instance_key ? 'Gerando...' : 'Gerar QR Code'}
                       </button>
                     </td>
                   </tr>
@@ -458,11 +482,10 @@ export default function Connections() {
           <div className="flex flex-1 flex-col gap-3 p-5">
             <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50 p-4">
               {qrCode ? (
-                <textarea
-                  readOnly
-                  value={qrCode}
-                  className="h-full min-h-[220px] w-full resize-none rounded-lg border border-slate-200 bg-white p-3 font-mono text-xs text-slate-700 focus:outline-none"
-                />
+                <div className="rounded-xl bg-white p-4 shadow-sm">
+                  <QRCodeSVG value={qrCode} size={280} level="M" includeMargin />
+                  <p className="mt-3 text-center text-xs font-semibold text-slate-500">Abra o WhatsApp no celular e leia este QR Code.</p>
+                </div>
               ) : (
                 <div className="text-center text-sm text-slate-500">
                   <QrCode className="mx-auto mb-3 h-10 w-10 text-slate-300" />

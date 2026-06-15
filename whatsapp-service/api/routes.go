@@ -21,19 +21,19 @@ import (
 	"github.com/fluowai/meugabinete/whatsapp-service/campaign"
 	"github.com/fluowai/meugabinete/whatsapp-service/database"
 	"github.com/fluowai/meugabinete/whatsapp-service/handler"
+	"github.com/fluowai/meugabinete/whatsapp-service/instances"
 	"github.com/fluowai/meugabinete/whatsapp-service/official-api"
 	"github.com/golang-jwt/jwt/v5"
-	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/types"
 )
 
 type APIServer struct {
-	router         *http.ServeMux
-	whatsappClient *whatsmeow.Client
-	cloudProvider  officialapi.WhatsAppProvider
-	webhookServer  *officialapi.WebhookServer
-	rateLimiter    *MultiRateLimiter
-	jwksCache      *JWKSCache
+	router        *http.ServeMux
+	instances     *instances.Manager
+	cloudProvider officialapi.WhatsAppProvider
+	webhookServer *officialapi.WebhookServer
+	rateLimiter   *MultiRateLimiter
+	jwksCache     *JWKSCache
 }
 
 type JWKSCache struct {
@@ -124,12 +124,12 @@ func WithWebhookServer(ws *officialapi.WebhookServer) APIServerOption {
 	}
 }
 
-func NewAPIServer(client *whatsmeow.Client, opts ...APIServerOption) *APIServer {
+func NewAPIServer(instanceManager *instances.Manager, opts ...APIServerOption) *APIServer {
 	s := &APIServer{
-		router:         http.NewServeMux(),
-		whatsappClient: client,
-		rateLimiter:    NewMultiRateLimiter(),
-		jwksCache:      &JWKSCache{},
+		router:      http.NewServeMux(),
+		instances:   instanceManager,
+		rateLimiter: NewMultiRateLimiter(),
+		jwksCache:   &JWKSCache{},
 	}
 
 	if officialapi.IsCloudAPIConfigured() {
@@ -359,7 +359,12 @@ func (s *APIServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 		"time":    time.Now().UTC().Format(time.RFC3339),
 	}
 
-	if s.whatsappClient != nil && s.whatsappClient.IsConnected() {
+	connectedInstances := 0
+	if s.instances != nil {
+		connectedInstances = s.instances.ConnectedCount()
+	}
+	status["whatsapp_instances"] = connectedInstances
+	if connectedInstances > 0 {
 		status["whatsapp"] = "connected"
 	} else {
 		status["whatsapp"] = "disconnected"
@@ -379,7 +384,7 @@ func (s *APIServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *APIServer) handleQR(w http.ResponseWriter, r *http.Request) {
-	respondJSON(w, map[string]string{"qr": os.Getenv("LATEST_QR")})
+	respondError(w, http.StatusBadRequest, "Use /api/whatsapp/connections/{instance_key}/qr")
 }
 
 func (s *APIServer) handleWhatsAppConnections(w http.ResponseWriter, r *http.Request) {
@@ -402,9 +407,14 @@ func (s *APIServer) handleWhatsAppConnections(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		snapshot := s.connectionSnapshot(request.Name)
-		if _, err := database.UpsertToSupabase("whatsapp_connections", "instance_key", snapshot); err != nil {
-			fmt.Printf("Failed to create WhatsApp connection: %v\n", err)
+		if s.instances == nil {
+			respondError(w, http.StatusServiceUnavailable, "WhatsApp instance manager is not available")
+			return
+		}
+		snapshot, err := s.instances.Create(request.Name)
+		if err != nil {
+			respondError(w, http.StatusBadGateway, err.Error())
+			return
 		}
 		respondJSONWithStatus(w, http.StatusCreated, snapshot)
 		return
@@ -415,34 +425,11 @@ func (s *APIServer) handleWhatsAppConnections(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	instanceName := "Instancia principal"
-	body, fetchErr := database.FetchFromSupabase("whatsapp_connections", "select=*&order=updated_at.desc")
-	if fetchErr == nil {
-		var connections []struct {
-			InstanceKey string `json:"instance_key"`
-			Name        string `json:"name"`
-		}
-		if json.Unmarshal(body, &connections) == nil {
-			for _, connection := range connections {
-				if connection.InstanceKey == "default" && strings.TrimSpace(connection.Name) != "" {
-					instanceName = connection.Name
-					break
-				}
-			}
-		}
-	}
-
-	snapshot := s.connectionSnapshot(instanceName)
-	if _, err := database.UpsertToSupabase("whatsapp_connections", "instance_key", snapshot); err != nil {
-		fmt.Printf("Failed to upsert WhatsApp connection snapshot: %v\n", err)
-	}
-
-	body, err := database.FetchFromSupabase("whatsapp_connections", "select=*&order=updated_at.desc")
-	if err != nil {
-		respondJSON(w, []map[string]interface{}{snapshot})
+	if s.instances == nil {
+		respondJSON(w, []instances.Snapshot{})
 		return
 	}
-	respondRawJSON(w, body)
+	respondJSON(w, s.instances.List())
 }
 
 func (s *APIServer) handleWhatsAppConnectionAction(w http.ResponseWriter, r *http.Request) {
@@ -459,17 +446,27 @@ func (s *APIServer) handleWhatsAppConnectionAction(w http.ResponseWriter, r *htt
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		respondJSON(w, map[string]string{"qr": os.Getenv("LATEST_QR")})
+		if s.instances == nil {
+			respondError(w, http.StatusServiceUnavailable, "WhatsApp instance manager is not available")
+			return
+		}
+		state, err := s.instances.QR(parts[0])
+		if err != nil {
+			respondError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		respondJSON(w, state)
 	case "sync-groups":
 		if r.Method != "POST" {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		if s.whatsappClient == nil || !s.whatsappClient.IsConnected() {
+		client, ok := s.instances.Client(parts[0])
+		if !ok || client == nil || !client.IsConnected() {
 			respondError(w, http.StatusServiceUnavailable, "WhatsApp client not connected")
 			return
 		}
-		groups, participants, err := handler.SyncJoinedGroups(s.whatsappClient)
+		groups, participants, err := handler.SyncJoinedGroups(client)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "Failed to sync groups")
 			return
@@ -477,40 +474,6 @@ func (s *APIServer) handleWhatsAppConnectionAction(w http.ResponseWriter, r *htt
 		respondJSON(w, map[string]int{"groups": groups, "participants": participants})
 	default:
 		respondError(w, http.StatusNotFound, "Not found")
-	}
-}
-
-func (s *APIServer) connectionSnapshot(name string) map[string]interface{} {
-	status := "disconnected"
-	connected := false
-	phone := ""
-	jid := ""
-	pushName := ""
-	now := time.Now().UTC().Format(time.RFC3339)
-
-	if s.whatsappClient != nil {
-		pushName = s.whatsappClient.Store.PushName
-		if s.whatsappClient.Store.ID != nil {
-			jid = s.whatsappClient.Store.ID.String()
-			_, phone = handler.NormalizePhone(s.whatsappClient.Store.ID.User)
-		}
-		if s.whatsappClient.IsConnected() {
-			status = "connected"
-			connected = true
-		}
-	}
-
-	return map[string]interface{}{
-		"instance_key":      "default",
-		"name":              name,
-		"provider":          "whatsmeow",
-		"status":            status,
-		"connected":         connected,
-		"jid":               nilIfEmptyString(jid),
-		"phone":             nilIfEmptyString(phone),
-		"push_name":         nilIfEmptyString(pushName),
-		"last_seen_at":      now,
-		"last_connected_at": valueIfConnected(connected, now),
 	}
 }
 
@@ -640,18 +603,19 @@ func (s *APIServer) handleSendCampaign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if s.whatsappClient == nil {
+	client := s.instances.PrimaryConnectedClient()
+	if client == nil {
 		respondError(w, http.StatusServiceUnavailable, "WhatsApp client not initialized")
 		return
 	}
 
-	if !s.whatsappClient.IsConnected() {
+	if !client.IsConnected() {
 		respondError(w, http.StatusServiceUnavailable, "WhatsApp client not connected")
 		return
 	}
 
 	go func() {
-		sent, failed := campaign.SendBulk(context.Background(), s.whatsappClient, req.Targets, req.Message)
+		sent, failed := campaign.SendBulk(context.Background(), client, req.Targets, req.Message)
 		fmt.Printf("Campaign '%s' sent: %d success, %d failed\n", req.Title, sent, failed)
 	}()
 
@@ -777,7 +741,8 @@ func (s *APIServer) handleWhatsAppGroupAction(w http.ResponseWriter, r *http.Req
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		if s.whatsappClient == nil || !s.whatsappClient.IsConnected() {
+		client := s.instances.PrimaryConnectedClient()
+		if client == nil || !client.IsConnected() {
 			respondError(w, http.StatusServiceUnavailable, "WhatsApp client not connected")
 			return
 		}
@@ -786,7 +751,7 @@ func (s *APIServer) handleWhatsAppGroupAction(w http.ResponseWriter, r *http.Req
 			respondError(w, http.StatusBadRequest, "Invalid group JID")
 			return
 		}
-		count, err := handler.SyncGroupParticipants(s.whatsappClient, jid, true)
+		count, err := handler.SyncGroupParticipants(client, jid, true)
 		if err != nil {
 			respondError(w, http.StatusInternalServerError, "Failed to sync participants")
 			return
