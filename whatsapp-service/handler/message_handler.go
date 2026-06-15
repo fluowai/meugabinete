@@ -73,10 +73,6 @@ func SendReply(client *whatsmeow.Client, jid types.JID, text string) {
 }
 
 func ProcessMessage(client *whatsmeow.Client, v *events.Message) {
-	if v.Info.IsFromMe {
-		return
-	}
-
 	if v.Info.Chat.Server != types.DefaultUserServer && v.Info.Chat.Server != types.LegacyUserServer && v.Info.Chat.Server != types.GroupServer {
 		return
 	}
@@ -138,7 +134,7 @@ func ProcessMessage(client *whatsmeow.Client, v *events.Message) {
 
 	messageRecordID := saveMessage(chatID, chatJID, senderJID, senderPhone, senderInfo.CountryCode, senderInfo.ProfilePhotoURL, pushName, senderDisplayName, isGroup, groupName, v, textContent, media, receivedAt)
 
-	if shouldCreateDemand(textContent, media) {
+	if !v.Info.IsFromMe && shouldCreateDemand(textContent, media) {
 		requestID := createRequestFromMessage(pushName, senderPhone, textContent, media, messageRecordID)
 		if requestID != "" && messageRecordID != "" {
 			_, _ = database.UpsertToSupabase("whatsapp_messages", "id", map[string]interface{}{
