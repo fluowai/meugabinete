@@ -359,6 +359,9 @@ func (s *APIServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 		"service": "whatsapp-service",
 		"time":    time.Now().UTC().Format(time.RFC3339),
 	}
+	if release := strings.TrimSpace(os.Getenv("MEUGABINETE_RELEASE")); release != "" {
+		status["release"] = release
+	}
 
 	connectedInstances := 0
 	if s.instances != nil {

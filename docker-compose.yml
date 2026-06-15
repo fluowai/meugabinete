@@ -61,6 +61,7 @@ services:
     image: ghcr.io/fluowai/meugabinete-whatsapp-service:latest
     environment:
       PORT: 3001
+      MEUGABINETE_RELEASE: "2026-06-15-whatsapp-atendimentos"
       ALLOWED_ORIGINS: "https://woogabinete.consultio.com.br"
       APP_URL: "${APP_URL:-https://woogabinete.consultio.com.br}"
       DATABASE_URL: "${DATABASE_URL:-file:/app/data/whatsapp_sessions.db?_pragma=foreign_keys(1)}"
