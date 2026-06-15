@@ -12,3 +12,8 @@ whatsapp-service/*.db
 whatsapp_sessions.db
 *.err.log
 *.out.log
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
