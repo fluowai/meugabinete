@@ -3,6 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+const defaultSupabaseUrl = 'https://cjirkvgalpignnaxixzr.supabase.co';
+const defaultSupabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqaXJrdmdhbHBpZ25uYXhpeHpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NjIzNzksImV4cCI6MjA5MzAzODM3OX0.MLVoApshNS_-0i56dnYXYEoP1_8WPEI5oknGbI6ijkg';
+
 const isValidUrl = (url?: string): boolean => {
   if (!url) return false;
   return url.startsWith('http://') || url.startsWith('https://');
@@ -11,23 +14,22 @@ const isValidUrl = (url?: string): boolean => {
 const isPlaceholder = (val?: string): boolean => {
   if (!val) return true;
   const trimmed = val.trim();
-  return trimmed.includes('YOUR_SUPABASE') || trimmed === '';
+  return trimmed === ''
+    || trimmed.includes('YOUR_SUPABASE')
+    || trimmed.includes('your-project')
+    || trimmed.includes('your-anon-key')
+    || trimmed.includes('placeholder');
 };
 
-if (!supabaseUrl || !supabaseAnonKey || isPlaceholder(supabaseUrl) || isPlaceholder(supabaseAnonKey)) {
-  console.warn(
-    'Supabase credentials missing or using placeholders. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file to connect to a real database.'
-  );
-}
-
-// Utiliza credenciais mockadas válidas sintaticamente para evitar que o bundle do React trave na inicialização
+// Supabase anon key and project URL are public frontend configuration.
+// Keep a production fallback so a missing CI secret never generates a placeholder bundle.
 const finalUrl = isValidUrl(supabaseUrl) && !isPlaceholder(supabaseUrl)
   ? supabaseUrl
-  : 'https://placeholder-project.supabase.co';
+  : defaultSupabaseUrl;
 
 const finalKey = supabaseAnonKey && !isPlaceholder(supabaseAnonKey)
   ? supabaseAnonKey
-  : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE1OTg4ODMwMDAsImV4cCI6MTkwNDQ0NzAwMH0.placeholder';
+  : defaultSupabaseAnonKey;
 
 export const supabase = createClient(
   finalUrl,
@@ -46,4 +48,3 @@ export const supabase = createClient(
     },
   }
 );
-

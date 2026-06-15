@@ -12,6 +12,9 @@ env:
   FRONTEND_IMAGE: ghcr.io/fluowai/meugabinete-frontend
   API_IMAGE: ghcr.io/fluowai/meugabinete-whatsapp-service
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  PUBLIC_VITE_SUPABASE_URL: https://cjirkvgalpignnaxixzr.supabase.co
+  PUBLIC_VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqaXJrdmdhbHBpZ25uYXhpeHpyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NjIzNzksImV4cCI6MjA5MzAzODM3OX0.MLVoApshNS_-0i56dnYXYEoP1_8WPEI5oknGbI6ijkg
+  PUBLIC_VITE_WHATSAPP_SERVICE_URL: https://woogabinete.consultio.com.br
 
 jobs:
   build-frontend:
@@ -29,6 +32,10 @@ jobs:
           cache: npm
 
       - name: Validate frontend
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || env.PUBLIC_VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY || env.PUBLIC_VITE_SUPABASE_ANON_KEY }}
+          VITE_WHATSAPP_SERVICE_URL: ${{ secrets.VITE_WHATSAPP_SERVICE_URL || env.PUBLIC_VITE_WHATSAPP_SERVICE_URL }}
         run: |
           npm ci
           npm run build
@@ -49,9 +56,9 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ env.FRONTEND_IMAGE }}:latest
           build-args: |
-            VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
-            VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
-            VITE_WHATSAPP_SERVICE_URL=${{ secrets.VITE_WHATSAPP_SERVICE_URL }}
+            VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL || env.PUBLIC_VITE_SUPABASE_URL }}
+            VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY || env.PUBLIC_VITE_SUPABASE_ANON_KEY }}
+            VITE_WHATSAPP_SERVICE_URL=${{ secrets.VITE_WHATSAPP_SERVICE_URL || env.PUBLIC_VITE_WHATSAPP_SERVICE_URL }}
 
   build-api:
     runs-on: ubuntu-latest

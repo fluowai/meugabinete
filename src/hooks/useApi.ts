@@ -23,8 +23,8 @@ const mapKeys = (obj: any) => {
 
 // Verifica se estamos em modo mock (ausência ou credencial placeholder do Supabase)
 const isMockMode = (): boolean => {
-  const url = import.meta.env.VITE_SUPABASE_URL || '';
-  return !url || url.includes('YOUR_SUPABASE') || url.includes('placeholder-project');
+  const url = import.meta.env.VITE_SUPABASE_URL || 'https://cjirkvgalpignnaxixzr.supabase.co';
+  return url.includes('YOUR_SUPABASE') || url.includes('your-project') || url.includes('placeholder');
 };
 
 // --- MOCK DATABASE PERSISTENTE EM LOCALSTORAGE ---
