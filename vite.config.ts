@@ -91,7 +91,12 @@ export default defineConfig(({ mode }) => {
           clientsClaim: true,
           skipWaiting: true,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
-          globIgnores: ['**/templates/**', '**/images/fazendas-brasil/**', '**/WhatsApp*.jpeg'],
+          globIgnores: [
+            '**/env-config.js',
+            '**/templates/**',
+            '**/images/fazendas-brasil/**',
+            '**/WhatsApp*.jpeg',
+          ],
           maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
           runtimeCaching: [
             {
