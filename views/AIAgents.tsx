@@ -2200,7 +2200,6 @@ const AIAgents: React.FC = () => {
                 </div>
               </div>
             </footer>
-            </footer>
           </section>
         </div>
 
