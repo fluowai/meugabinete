@@ -77,10 +77,9 @@ const TeamManager: React.FC = () => {
       return;
 
     try {
-      // Demote to broker instead of deleting
       const { error } = await supabase
         .from('profiles')
-        .update({ role: 'broker' })
+        .update({ role: 'assessor' })
         .eq('id', id);
 
       if (error) throw error;
@@ -105,7 +104,7 @@ const TeamManager: React.FC = () => {
             Equipe Super Admin
           </h1>
           <p className="text-gray-500 mt-1">
-            Gerencie os administradores e agentes de suporte internos da IMOBZY.
+            Gerencie os administradores e agentes de suporte internos da PIOS.
           </p>
         </div>
         <button
@@ -284,7 +283,7 @@ const TeamManager: React.FC = () => {
                 <input
                   type="email"
                   required
-                  placeholder="exemplo@imobzy.com"
+                  placeholder="exemplo@political-os.com.br"
                   className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}

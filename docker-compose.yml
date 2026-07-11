@@ -1,4 +1,4 @@
-name: imobzy
+name: political-intelligence-os
 
 services:
   traefik:
@@ -18,7 +18,7 @@ services:
       - ./traefik/dynamic:/traefik/dynamic:ro
       - traefik_acme:/traefik
     networks:
-      - imobzy
+      - pios
     cpus: "0.50"
     mem_limit: 256m
     logging: &default-logging
@@ -34,15 +34,15 @@ services:
       args:
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
-        VITE_PANEL_URL: ${APP_URL:-https://app.imobfluow.com.br}
+        VITE_PANEL_URL: ${APP_URL:-https://app.political-os.com.br}
     env_file:
       - .env.production
     environment:
       VITE_API_URL: same-origin
       VITE_WHATSAPP_API_URL: /api/whatsapp
       VITE_WHATSAPP_WS_URL: /api/whatsapp/ws
-      VITE_PUBLIC_APP_URL: ${PUBLIC_APP_URL:-https://imobfluow.com.br}
-      VITE_PANEL_URL: ${APP_URL:-https://app.imobfluow.com.br}
+      VITE_PUBLIC_APP_URL: ${PUBLIC_APP_URL:-https://political-os.com.br}
+      VITE_PANEL_URL: ${APP_URL:-https://app.political-os.com.br}
       VITE_PLATFORM_IP: ${PLATFORM_PUBLIC_IP:-207.58.153.219}
       VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
       VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
@@ -55,7 +55,7 @@ services:
       retries: 3
       start_period: 20s
     networks:
-      - imobzy
+      - pios
     cpus: "0.50"
     mem_limit: 256m
     logging: *default-logging
@@ -76,10 +76,9 @@ services:
       WHATSAPP_SERVICE_TOKEN: ${WHATSAPP_SERVICE_TOKEN:?set WHATSAPP_SERVICE_TOKEN}
       WHATSAPP_INTERNAL_TOKEN: ${WHATSAPP_INTERNAL_TOKEN:?set WHATSAPP_INTERNAL_TOKEN}
       WHATSAPP_WS_JWT_SECRET: ${WHATSAPP_WS_JWT_SECRET:?set WHATSAPP_WS_JWT_SECRET}
-      AGRO_INTEL_URL: http://agro-intelligence:8000
       NODE_URL: http://api:3002
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://app.imobfluow.com.br,https://imobfluow.com.br,https://www.imobfluow.com.br,https://okaimoveis.com.br,https://www.okaimoveis.com.br}
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://app.imobfluow.com.br,https://imobfluow.com.br,https://www.imobfluow.com.br,https://okaimoveis.com.br,https://www.okaimoveis.com.br}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://app.political-os.com.br,https://political-os.com.br}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://app.political-os.com.br,https://political-os.com.br}
     volumes:
       - ./traefik/dynamic:/traefik/dynamic
     expose:
@@ -87,10 +86,6 @@ services:
     depends_on:
       whatsapp-service:
         condition: service_healthy
-      agro-intelligence:
-        condition: service_started
-      document-worker:
-        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3002/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 30s
@@ -98,7 +93,7 @@ services:
       retries: 3
       start_period: 30s
     networks:
-      - imobzy
+      - pios
     cpus: "1.00"
     mem_limit: 768m
     logging: *default-logging
@@ -119,8 +114,8 @@ services:
       WHATSAPP_SERVICE_TOKEN: ${WHATSAPP_SERVICE_TOKEN:?set WHATSAPP_SERVICE_TOKEN}
       WHATSAPP_INTERNAL_TOKEN: ${WHATSAPP_INTERNAL_TOKEN:?set WHATSAPP_INTERNAL_TOKEN}
       PGSSLMODE: require
-      CORS_ORIGINS: ${CORS_ORIGINS:-https://app.imobfluow.com.br,https://imobfluow.com.br,https://www.imobfluow.com.br,https://okaimoveis.com.br,https://www.okaimoveis.com.br}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://app.imobfluow.com.br,https://imobfluow.com.br,https://www.imobfluow.com.br,https://okaimoveis.com.br,https://www.okaimoveis.com.br}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://app.political-os.com.br,https://political-os.com.br}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://app.political-os.com.br,https://political-os.com.br}
     volumes:
       - whatsapp_sessions:/app/.sessions
     expose:
@@ -132,45 +127,8 @@ services:
       retries: 3
       start_period: 30s
     networks:
-      - imobzy
+      - pios
     cpus: "1.50"
-    mem_limit: 1g
-    logging: *default-logging
-    restart: unless-stopped
-
-  agro-intelligence:
-    build:
-      context: .
-      dockerfile: Dockerfile.agro
-    expose:
-      - "8000"
-    networks:
-      - imobzy
-    cpus: "1.00"
-    mem_limit: 1g
-    logging: *default-logging
-    restart: unless-stopped
-
-  document-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile.document-worker
-    env_file:
-      - .env.production
-    environment:
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      WEBHOOK_URL: http://api:3002/api/documents/webhook/worker-result
-    expose:
-      - "8001"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8001/health || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    networks:
-      - imobzy
-    cpus: "1.00"
     mem_limit: 1g
     logging: *default-logging
     restart: unless-stopped
@@ -180,5 +138,5 @@ volumes:
   traefik_acme:
 
 networks:
-  imobzy:
+  pios:
     driver: bridge

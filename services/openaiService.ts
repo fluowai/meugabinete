@@ -1,42 +1,13 @@
-import { logger } from '@/utils/logger';
-import axios from 'axios';
-
 export const openaiService = {
-  generateText: async (prompt: string, apiKey: string) => {
-    if (!apiKey) {
-      logger.warn('⚠️ OpenAI API Key não fornecida.');
-      return '{}';
-    }
-
-    try {
-      const response = await axios.post(
-        'https://api.openai.com/v1/chat/completions',
-        {
-          model: 'gpt-4o',
-          messages: [
-            {
-              role: 'system',
-              content: 'Você é um especialista em marketing imobiliário.',
-            },
-            { role: 'user', content: prompt },
-          ],
-          temperature: 0.2,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      return response.data.choices[0].message.content || '{}';
-    } catch (error: any) {
-      logger.error(
-        'Error generating text with OpenAI:',
-        error.response?.data || error.message
-      );
-      return '{}';
-    }
+  async generateContent(prompt: string, apiKey?: string): Promise<string> {
+    void apiKey;
+    throw new Error('OpenAI service nao configurado para este ambiente.');
+  },
+  async generateText(prompt: string, apiKey?: string): Promise<string> {
+    return this.generateContent(prompt, apiKey);
   },
 };
+
+export async function generateWithOpenAI(prompt: string): Promise<string> {
+  return openaiService.generateContent(prompt);
+}

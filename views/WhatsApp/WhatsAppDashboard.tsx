@@ -657,11 +657,11 @@ const WhatsAppDashboard: React.FC = () => {
                 <div className="wa-empty-contact-avatar">
                   <UserRound size={28} />
                 </div>
-                <h3>Card do lead</h3>
-                <p>Ao clicar em uma conversa, este painel mostra contato, CRM, tags, responsavel e acoes rapidas.</p>
+                <h3>Card do cidadão</h3>
+                <p>Ao clicar em uma conversa, este painel mostra contato, demandas, tags, responsavel e acoes rapidas.</p>
               </div>
               <div className="wa-empty-actions-preview">
-                <span><UserRound size={15} /> Editar/vincular lead</span>
+                <span><UserRound size={15} /> Criar/vincular demanda</span>
                 <span><ArrowRightLeft size={15} /> Transferir chat</span>
                 <span><Tag size={15} /> Criar tag</span>
                 <span><Clock3 size={15} /> Criar tarefa</span>

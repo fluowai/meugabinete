@@ -1,7 +1,7 @@
 import { getRuntimeEnv } from './runtimeConfig';
 
-export const BRAND_NAME = 'ImobFluow';
-export const PLATFORM_DOMAIN = 'imobfluow.com.br';
+export const BRAND_NAME = 'PIOS';
+export const PLATFORM_DOMAIN = 'political-os.com.br';
 export const PLATFORM_BASE_URL = getRuntimeEnv(
   'VITE_PUBLIC_APP_URL',
   `https://${PLATFORM_DOMAIN}`

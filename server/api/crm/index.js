@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { verifyAuth, verifyAdmin } from '../../middleware/auth.js';
 import { requireTenant } from '../../middleware/tenant.js';
 import { getSupabaseServer } from '../../lib/supabase-server.js';
-import { matchLeadProperties } from '../../services/leadPropertyMatcher.js';
 
 const router = Router();
 
@@ -22,29 +21,18 @@ const KANBAN_CARD_SELECT = `
   next_visit_at,
   chat_jid,
   campaign,
-  property_id,
+  protocol,
+  citizen_name,
+  demand_subject,
+  demand_category,
+  demand_priority,
+  neighborhood,
+  city,
+  responsible_department,
+  due_at,
   created_at,
-  properties(title, price, images),
   lead_tags(tag)
 `;
-
-function serializeKanbanLead(row) {
-  if (!row) return row;
-  const property = row.properties
-    ? {
-        title: row.properties.title,
-        price: row.properties.price,
-        thumbnail: Array.isArray(row.properties.images)
-          ? row.properties.images[0] || null
-          : null,
-      }
-    : null;
-
-  return {
-    ...row,
-    properties: property,
-  };
-}
 
 function normalizePhone(value = '') {
   let digits = String(value).replace(/\D/g, '').replace(/^0+/, '');
@@ -82,7 +70,24 @@ function resolveLeadName(...values) {
     if (!clean || isPlaceholderLeadName(clean)) continue;
     return clean;
   }
-  return phoneFallback || 'Lead WhatsApp';
+  return phoneFallback || 'Cidadao WhatsApp';
+}
+
+async function generateDemandProtocol(organizationId) {
+  const year = new Date().getFullYear();
+  const prefix = `GB-${year}-`;
+  const { data, error } = await supabase
+    .from('leads')
+    .select('protocol')
+    .eq('organization_id', organizationId)
+    .like('protocol', `${prefix}%`)
+    .order('protocol', { ascending: false })
+    .limit(1);
+
+  if (error) throw error;
+
+  const last = Number(String(data?.[0]?.protocol || '').match(/(\d+)$/)?.[1] || 0);
+  return `${prefix}${String(last + 1).padStart(6, '0')}`;
 }
 
 async function findLeadByNormalizedPhone(organizationId, phone) {
@@ -107,7 +112,7 @@ async function findLeadByNormalizedPhone(organizationId, phone) {
 async function findOrCreateWhatsAppLead({ organizationId, phone, name, chatJid, source = 'WhatsApp' }) {
   const normalizedPhone = normalizePhone(phone);
   if (isGroupChatJid(chatJid)) {
-    const error = new Error('Conversas de grupo nao criam lead no Kanban');
+    const error = new Error('Conversas de grupo nao criam demanda no Kanban');
     error.statusCode = 400;
     throw error;
   }
@@ -130,6 +135,9 @@ async function findOrCreateWhatsAppLead({ organizationId, phone, name, chatJid, 
 
     if (isPlaceholderLeadName(existingLead.name)) updates.name = displayName;
     if (!existingLead.source) updates.source = source;
+    if (!existingLead.citizen_name) updates.citizen_name = displayName;
+    if (!existingLead.protocol) updates.protocol = await generateDemandProtocol(organizationId);
+    if (!existingLead.demand_priority) updates.demand_priority = 'normal';
 
     const { data, error } = await supabase
       .from('leads')
@@ -146,10 +154,13 @@ async function findOrCreateWhatsAppLead({ organizationId, phone, name, chatJid, 
     .insert({
       organization_id: organizationId,
       name: displayName,
+      citizen_name: displayName,
       phone: normalizedPhone,
       source,
-      status: 'Novo',
-      classification: 'Interessado',
+      status: 'Nova',
+      classification: 'Triagem inicial',
+      demand_priority: 'normal',
+      protocol: await generateDemandProtocol(organizationId),
       chat_jid: chatJid || null,
       last_contacted_at: new Date().toISOString(),
     })
@@ -203,9 +214,9 @@ router.get('/leads', verifyAuth, requireTenant, async (req, res) => {
       .order('id', { ascending: false });
 
     if (status) query = query.eq('status', status);
-    if (intent === 'comprador') query = query.eq('classification', 'Comprador Fazenda');
-    if (intent === 'vendedor') query = query.eq('classification', 'Vendedor Fazenda');
-    if (intent === 'parceria') query = query.eq('classification', 'Corretor/Parceria');
+    if (intent === 'saude') query = query.eq('demand_category', 'saude');
+    if (intent === 'infraestrutura') query = query.eq('demand_category', 'infraestrutura');
+    if (intent === 'assistencia') query = query.eq('demand_category', 'assistencia_social');
 
     if (cursorCreatedAt && cursorId) {
       query = query.or(
@@ -222,8 +233,7 @@ router.get('/leads', verifyAuth, requireTenant, async (req, res) => {
     if (error) throw error;
 
     const hasMore = (data || []).length > limit;
-    const leads = (hasMore ? data.slice(0, limit) : (data || []))
-      .map(serializeKanbanLead);
+    const leads = hasMore ? data.slice(0, limit) : (data || []);
     const lastLead = leads.at(-1);
 
     res.json({ 
@@ -260,7 +270,7 @@ router.get('/leads/:id', verifyAuth, requireTenant, async (req, res) => {
       await Promise.all([
         supabase
           .from('leads')
-          .select('*, properties(title, price, images), lead_tags(tag)')
+          .select('*, lead_tags(tag)')
           .eq('id', req.params.id)
           .eq('organization_id', req.orgId)
           .single(),
@@ -468,7 +478,7 @@ router.post('/whatsapp/transfer', verifyAuth, requireTenant, async (req, res) =>
       .from('leads')
       .update({
         assigned_to: assignee.id,
-        status: 'Em Atendimento',
+        status: 'Triagem',
         last_contacted_at: new Date().toISOString(),
       })
       .eq('id', lead.id)
@@ -520,7 +530,7 @@ router.post('/whatsapp/priority', verifyAuth, requireTenant, async (req, res) =>
 
     const { data, error } = await supabase
       .from('leads')
-      .update({ classification: 'Alta Prioridade', last_contacted_at: new Date().toISOString() })
+      .update({ classification: 'Alta Prioridade', demand_priority: 'alta', last_contacted_at: new Date().toISOString() })
       .eq('id', lead.id)
       .eq('organization_id', req.orgId)
       .select()
@@ -606,7 +616,7 @@ router.post('/whatsapp/task', verifyAuth, requireTenant, async (req, res) => {
  */
 router.post('/leads', verifyAuth, requireTenant, async (req, res) => {
   try {
-    const { name, phone, email, property_id, source } = req.body;
+    const { name, phone, email, source } = req.body;
     const normalizedPhone = normalizePhone(phone);
     
     if (!name || !phone) {
@@ -626,13 +636,21 @@ router.post('/leads', verifyAuth, requireTenant, async (req, res) => {
           name: isPlaceholderLeadName(existingLead.name) ? name : existingLead.name,
           phone: normalizedPhone,
           email: email || existingLead.email,
-          property_id: property_id || existingLead.property_id,
-          source: existingLead.source || source || 'CRM / Manual',
+          source: existingLead.source || source || 'Gabinete / Manual',
           ad_reference: req.body.ad_reference || existingLead.ad_reference,
           organic_channel: req.body.organic_channel || existingLead.organic_channel,
           campaign: req.body.campaign || existingLead.campaign,
           notes: [existingLead.notes, req.body.notes].filter(Boolean).join('\n\n'),
           budget: req.body.budget || existingLead.budget,
+          citizen_name: req.body.citizen_name || name || existingLead.citizen_name,
+          demand_subject: req.body.demand_subject || existingLead.demand_subject,
+          demand_category: req.body.demand_category || existingLead.demand_category,
+          demand_priority: req.body.demand_priority || existingLead.demand_priority || 'normal',
+          neighborhood: req.body.neighborhood || existingLead.neighborhood,
+          city: req.body.city || existingLead.city,
+          address: req.body.address || existingLead.address,
+          responsible_department: req.body.responsible_department || existingLead.responsible_department,
+          due_at: req.body.due_at || existingLead.due_at,
           aptitude_interest: req.body.aptitude_interest || existingLead.aptitude_interest,
           last_contacted_at: new Date().toISOString(),
         })
@@ -648,17 +666,27 @@ router.post('/leads', verifyAuth, requireTenant, async (req, res) => {
         .insert({
           organization_id: req.orgId,
           name,
+          citizen_name: req.body.citizen_name || name,
           phone: normalizedPhone,
           email,
-          property_id,
-          source: source || 'CRM / Manual',
+          source: source || 'Gabinete / Manual',
           ad_reference: req.body.ad_reference,
           organic_channel: req.body.organic_channel,
           campaign: req.body.campaign,
           notes: req.body.notes,
           budget: req.body.budget,
           aptitude_interest: req.body.aptitude_interest,
-          status: 'Novo'
+          status: req.body.status || 'Nova',
+          classification: req.body.classification || 'Triagem inicial',
+          protocol: await generateDemandProtocol(req.orgId),
+          demand_subject: req.body.demand_subject || req.body.notes || null,
+          demand_category: req.body.demand_category || null,
+          demand_priority: req.body.demand_priority || 'normal',
+          neighborhood: req.body.neighborhood || null,
+          city: req.body.city || null,
+          address: req.body.address || null,
+          responsible_department: req.body.responsible_department || null,
+          due_at: req.body.due_at || null
         })
         .select()
         .single();
@@ -667,19 +695,7 @@ router.post('/leads', verifyAuth, requireTenant, async (req, res) => {
       data = inserted;
     }
 
-    const forcedProfile = ['urbano', 'rural'].includes(req.body.match_profile)
-      ? req.body.match_profile
-      : null;
-
-    const matchedLead = await matchLeadProperties({
-      supabase,
-      lead: data,
-      organizationId: req.orgId,
-      createdBy: req.user.id,
-      profileOverride: forcedProfile,
-    });
-
-    res.status(existingLead ? 200 : 201).json({ success: true, lead: matchedLead });
+    res.status(existingLead ? 200 : 201).json({ success: true, lead: data });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -710,16 +726,6 @@ router.patch('/leads/:id', verifyAuth, requireTenant, async (req, res) => {
       return res.status(403).json({ error: 'Acesso negado' });
     }
 
-    const shouldRematch = [
-      'notes',
-      'budget',
-      'aptitude_interest',
-      'preferences',
-      'source',
-      'ad_reference',
-      'campaign',
-    ].some((field) => Object.prototype.hasOwnProperty.call(updates, field));
-
     const { data, error } = await supabase
       .from('leads')
       .update(updates)
@@ -738,53 +744,7 @@ router.patch('/leads/:id', verifyAuth, requireTenant, async (req, res) => {
       description: 'Dados do lead atualizados'
     });
 
-    const matchedLead = shouldRematch
-      ? await matchLeadProperties({
-          supabase,
-          lead: data,
-          organizationId: req.orgId,
-          createdBy: req.user.id,
-        })
-      : data;
-
-    res.json({ success: true, lead: matchedLead });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * POST /api/crm/leads/:id/match-properties
- * Recalcula as sugestÃµes de imÃ³veis para o lead.
- */
-router.post('/leads/:id/match-properties', verifyAuth, requireTenant, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const { data: lead, error } = await supabase
-      .from('leads')
-      .select('*')
-      .eq('id', id)
-      .eq('organization_id', req.orgId)
-      .single();
-
-    if (error || !lead) {
-      return res.status(404).json({ error: 'Lead nÃ£o encontrado' });
-    }
-
-    const forcedProfile = ['urbano', 'rural'].includes(req.body.match_profile)
-      ? req.body.match_profile
-      : null;
-
-    const matchedLead = await matchLeadProperties({
-      supabase,
-      lead,
-      organizationId: req.orgId,
-      createdBy: req.user.id,
-      profileOverride: forcedProfile,
-    });
-
-    res.json({ success: true, lead: matchedLead });
+    res.json({ success: true, lead: data });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

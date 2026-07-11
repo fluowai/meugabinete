@@ -1,19 +1,19 @@
 http:
   routers:
-    imobzy_platform_api:
-      rule: "Host(`app.imobfluow.com.br`, `imobfluow.com.br`, `www.imobfluow.com.br`, `okaimoveis.com.br`, `www.okaimoveis.com.br`) && PathPrefix(`/api`)"
+    pios_platform_api:
+      rule: "Host(`app.political-os.com.br`, `political-os.com.br`, `www.political-os.com.br`) && PathPrefix(`/api`)"
       entryPoints:
         - websecure
       priority: 1000
       tls:
         certResolver: letsencryptresolver
-      service: imobzy_api@file
+      service: pios_api@file
 
-    imobzy_platform_frontend:
-      rule: "Host(`app.imobfluow.com.br`, `imobfluow.com.br`, `www.imobfluow.com.br`, `okaimoveis.com.br`, `www.okaimoveis.com.br`)"
+    pios_platform_frontend:
+      rule: "Host(`app.political-os.com.br`, `political-os.com.br`, `www.political-os.com.br`)"
       entryPoints:
         - websecure
       priority: 100
       tls:
         certResolver: letsencryptresolver
-      service: imobzy_frontend@file
+      service: pios_frontend@file

@@ -1,15 +1,4 @@
 import { logger } from '@/utils/logger';
-import { Property } from '../types';
-import {
-  LandingPage,
-  BlockType,
-  BlockConfig,
-  LandingPageTheme,
-  Block,
-} from '../types/landingPage';
-import { v4 as uuidv4 } from 'uuid';
-import { geminiService } from './geminiService';
-import { openaiService } from './openaiService';
 import { groqService } from './groqService';
 
 export interface AIConfig {
@@ -19,280 +8,170 @@ export interface AIConfig {
   groqKey?: string;
 }
 
-export const generateLandingPageFromProperty = async (
-  property: Property,
-  config?: AIConfig
-): Promise<Partial<LandingPage>> => {
-  // Construct enhanced prompt with copywriting expertise
-  const propertyImages =
-    property.images && property.images.length > 0 ? property.images : [];
-
-  const prompt = `
-Você é um ESPECIALISTA em copywriting imobiliário e marketing de alto padrão, focado exclusivamente no mercado RURAL brasileiro.
-Sua missão: criar uma landing page IRRESISTÍVEL para vender este imóvel rural.
-
-=== DADOS DO IMÓVEL ===
-Título: ${property.title}
-Tipo: ${property.type}
-Preço: R$ ${property.price.toLocaleString('pt-BR')}
-Localização: ${property.location.city} - ${property.location.state}
-Endereço: ${property.location.address || property.location.neighborhood}
-
---- CARACTERÍSTICAS TÉCNICAS ---
-Área Total: ${property.features.areaHectares} hectares
-Astudão Principal: ${property.aptitude?.join(', ') || 'Rural'}
-Topografia: ${property.features.topography || 'Não informada'}
-Textura do Solo: ${property.features.soilTexture || 'Não informada'}
-Altitude: ${property.features.altitude ? property.features.altitude + 'm' : 'Não informada'}
-
---- INFRAESTRUTURA E BENFEITORIAS ---
-Sede: ${property.features.infra?.casaSede ? 'Sim' : 'Não'}
-Casas Func.: ${property.features.infra?.casasFuncionarios || 0}
-Galpões: ${property.features.infra?.galpaes || 0}
-Piquetes: ${property.features.infra?.piquetes || 0}
-Outros: ${
-    [
-      property.features.infra?.curral ? 'Curral' : '',
-      property.features.infra?.brete ? 'Brete' : '',
-      property.features.infra?.balanca ? 'Balança' : '',
-      property.features.infra?.energiaSolar ? 'Energia Solar' : '',
-      property.features.infra?.irrigacao ? 'Sistema de Irrigação' : '',
-      property.features.infra?.pivotCentral ? 'Pivot Central' : '',
-    ]
-      .filter(Boolean)
-      .join(', ') || 'Básico'
-  }
-
---- RECURSOS HÍDRICOS ---
-Fontes: ${
-    [
-      property.features.water?.rio ? 'Rio' : '',
-      property.features.water?.corrego ? 'Córrego' : '',
-      property.features.water?.nascente ? 'Nascente' : '',
-      property.features.water?.represa ? 'Represa' : '',
-      property.features.infra?.pocoArtesiano ? 'Poço Artesiano' : '',
-    ]
-      .filter(Boolean)
-      .join(', ') || 'Não detalhadas'
-  }
-
---- DOCUMENTAÇÃO ---
-Regularização: ${
-    [
-      property.features.legal?.car ? 'CAR' : '',
-      property.features.legal?.ccir ? 'CCIR' : '',
-      property.features.legal?.geo ? 'GEO' : '',
-      property.features.legal?.itr ? 'ITR' : '',
-      property.features.legal?.escritura ? 'Escritura' : '',
-    ]
-      .filter(Boolean)
-      .join(', ') || 'Consulte'
-  }
-Reserva Legal: ${property.features.legal?.reservaLegal || 0}%
-APP: ${property.features.legal?.app || 0}%
-
-Descrição Original: 
-${property.description}
-
-Imagens Disponíveis: ${propertyImages.length} fotos profissionais
-
-=== SUA TAREFA ===
-Gerar um JSON com blocos de landing page que VENDEM.
-
-REGRAS DE OURO DO COPYWRITING:
-1. BENEFÍCIOS > Características (ex: "Água em abundância o ano todo" em vez de "Rio e Nascente")
-2. EMOÇÃO > Razão (criar desejo de investimento e qualidade de vida)
-3. ESPECÍFICO > Genérico (use os dados de solo, altitude e infraestrutura para dar autoridade)
-4. AÇÃO > Passividade (verbos fortes: descubra, garanta, conquiste)
-5. URGÊNCIA e EXCLUSIVIDADE (focar no potencial de valorização e produtividade)
-
-ESTRUTURA OBRIGATÓRIA (RETORNE APENAS O JSON):
-
-{
-  "name": "Nome curto para a página",
-  "title": "Título SEO persuasivo",
-  "description": "Meta description de 150-160 caracteres",
-  "themeConfig": {
-    "primaryColor": "#2d5016",
-    "secondaryColor": "#8b4513", 
-    "fontFamily": "Montserrat"
-  },
-  "blocks": [
-    {
-      "type": "hero",
-      "config": {
-        "title": "Título EMOCIONAL",
-        "subtitle": "Benefício principal com área e local",
-        "backgroundImage": "${propertyImages[0] || ''}",
-        "overlayOpacity": 0.4,
-        "ctaText": "Saiba Mais",
-        "ctaLink": "#contato"
-      }
-    },
-    {
-      "type": "stats",
-      "config": {
-        "stats": [
-          {"value": "${property.features.areaHectares} ha", "label": "Área Total", "icon": "🌿"},
-          {"value": "${property.features.soilTexture || 'Misto'}", "label": "Qualidade do Solo", "icon": "🚜"},
-          {"value": "${property.features.topography || 'Plana'}", "label": "Topografia", "icon": "📐"}
-        ]
-      }
-    },
-    {
-      "type": "text",
-      "config": {
-        "content": "<p>Venda o potencial produtivo e a qualidade de vida aqui...</p>"
-      }
-    },
-    {
-      "type": "features",
-      "config": {
-        "features": [
-           // Liste 6 diferenciais transformados em benefícios
-        ]
-      }
-    }
-  ]
+export interface DemandAnalysis {
+  category: string;
+  priority: 'urgente' | 'alta' | 'normal' | 'baixa';
+  summary: string;
+  missingData: string[];
+  nextAction: string;
+  department: string;
 }
 
-RETORNE APENAS O JSON. SEM MARKDOWN. SEM EXPLICAÇÕES.
+export interface ContentGeneration {
+  title: string;
+  body: string;
+  hashtags: string[];
+  channel: string;
+  tone: string;
+}
+
+export const analyzeDemand = async (
+  message: string,
+  config?: AIConfig
+): Promise<DemandAnalysis> => {
+  const prompt = `
+Analise esta mensagem de um cidadão para um gabinete público e retorne um JSON com:
+
+{
+  "category": "saude|educacao|seguranca|infraestrutura|assistencia_social|meio_ambiente|trabalho|habitacao|transporte|cultura|agricultura|justica|outro",
+  "priority": "urgente|alta|normal|baixa",
+  "summary": "Resumo da demanda em até 200 caracteres",
+  "missingData": ["lista de dados faltantes para resolver"],
+  "nextAction": "Próxima ação recomendada",
+  "department": "Secretaria ou setor competente"
+}
+
+Mensagem do cidadão:
+${message}
+
+Retorne APENAS o JSON. Sem markdown. Sem explicações.
 `;
 
   try {
     let text = '{}';
 
-    // Choose Provider with fallback
-    if (config?.openaiKey) {
-      logger.info('🤖 Using OpenAI for landing page generation...');
-      text = await openaiService.generateText(prompt, config.openaiKey);
-    } else if (config?.geminiKey) {
-      logger.info('🤖 Using Gemini (Config) for landing page generation...');
-      text = await geminiService.generateText(prompt); // geminiService handles its own key currently, but we could refactor
-    } else if (config?.groqKey) {
-      logger.info('🤖 Using Groq for landing page generation...');
+    if (config?.groqKey) {
       text = await groqService.generateText(prompt, config.groqKey);
     } else {
-      // Default to env key if available (Gemini)
-      logger.info(
-        '🤖 Using Default Gemini (Env) for landing page generation...'
-      );
-      text = await geminiService.generateText(prompt);
+      text = await groqService.generateText(prompt, config?.groqKey || '');
     }
 
-    // Clean JSON string if returned with ```json
-    const cleanJson = text
-      .replace(/```json/g, '')
-      .replace(/```/g, '')
-      .trim();
+    const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
     const parsed = JSON.parse(cleanJson);
 
-    // Post-process to ensure IDs and types match our system
-    let blocks: Block[] = (parsed.blocks || []).map(
-      (b: any, index: number) => ({
-        id: uuidv4(),
-        type: b.type as BlockType,
-        order: index,
-        visible: true,
-        config: b.config,
-        styles: { padding: '40px 20px' },
-        responsive: {},
-      })
-    );
-
-    // FORCE property images into blocks (post-processing override)
-    if (propertyImages.length > 0) {
-      // 1. Find hero block and inject first image
-      const heroBlock = blocks.find((b) => b.type === BlockType.HERO);
-      if (heroBlock && heroBlock.config) {
-        (heroBlock.config as any).backgroundImage = propertyImages[0];
-      }
-
-      // 2. Find or create PROPERTY_CAROUSEL block if 2+ images
-      if (propertyImages.length >= 2) {
-        let carouselBlock = blocks.find(
-          (b) => b.type === BlockType.PROPERTY_CAROUSEL
-        );
-
-        // Convert image URLs to carousel format
-        const carouselImages = propertyImages.map((url, idx) => ({
-          src: url,
-          alt: `${property.title} - Vista ${idx + 1}`,
-          caption: `Explore cada detalhe desta propriedade`,
-        }));
-
-        if (!carouselBlock) {
-          // Create new carousel block
-          carouselBlock = {
-            id: uuidv4(),
-            type: BlockType.PROPERTY_CAROUSEL,
-            order: blocks.length,
-            visible: true,
-            config: {
-              images: carouselImages,
-              autoplay: false,
-              autoplayDelay: 4000,
-              showThumbnails: true,
-              showDots: true,
-            } as any,
-            styles: { padding: '40px 20px' },
-            responsive: {},
-          };
-          blocks.push(carouselBlock);
-        } else {
-          // Update existing carousel
-          carouselBlock.config = {
-            ...carouselBlock.config,
-            images: carouselImages,
-            autoplay: false,
-            autoplayDelay: 4000,
-            showThumbnails: true,
-            showDots: true,
-          } as any;
-        }
-      }
-
-      // 3. Find image blocks and populate them
-      blocks.forEach((block, index) => {
-        if (block.type === BlockType.IMAGE && propertyImages[index + 1]) {
-          block.config = {
-            ...block.config,
-            src: propertyImages[index + 1] || propertyImages[0],
-            alt: property.title,
-          } as any;
-        }
-      });
-    }
-
     return {
-      name: parsed.name || property.title,
-      title: parsed.title || property.title,
-      description: parsed.description || property.description,
-      themeConfig: {
-        ...parsed.themeConfig,
-        backgroundColor: '#ffffff',
-        textColor: '#1f2937',
-        borderRadius: '0.5rem',
-        spacing: {
-          xs: '0.5rem',
-          sm: '1rem',
-          md: '1.5rem',
-          lg: '2rem',
-          xl: '3rem',
-        },
-        fontSize: {
-          base: '1rem',
-          heading1: '2.5rem',
-          heading2: '2rem',
-          heading3: '1.75rem',
-        },
-      } as LandingPageTheme,
-      blocks: blocks,
+      category: parsed.category || 'outro',
+      priority: parsed.priority || 'normal',
+      summary: parsed.summary || message.slice(0, 200),
+      missingData: Array.isArray(parsed.missingData) ? parsed.missingData : [],
+      nextAction: parsed.nextAction || 'Classificar demanda',
+      department: parsed.department || 'Gabinete',
     };
   } catch (error) {
-    logger.error('Error generating landing page:', error);
-    throw new Error(
-      'Failed to generate landing page content: ' + (error as any).message
-    );
+    logger.error('Error analyzing demand:', error);
+    return {
+      category: 'outro',
+      priority: 'normal',
+      summary: message.slice(0, 200),
+      missingData: [],
+      nextAction: 'Revisar manualmente',
+      department: 'Gabinete',
+    };
+  }
+};
+
+export const generatePoliticalContent = async (
+  topic: string,
+  channel: 'instagram' | 'facebook' | 'twitter' | 'newsletter' | 'comunicado',
+  config?: AIConfig
+): Promise<ContentGeneration> => {
+  const channelDescriptions: Record<string, string> = {
+    instagram: 'Post para Instagram com linguagem visual e engajadora',
+    facebook: 'Post para Facebook com tom informativo e acessível',
+    twitter: 'Tweet conciso e direto com máximo 280 caracteres',
+    newsletter: 'E-mail informativo para assinantes com contexto e dados',
+    comunicado: 'Comunicado oficial do gabinete com linguagem formal e institucional',
+  };
+
+  const prompt = `
+Gere conteúdo político para o canal "${channel}" sobre o tema: ${topic}
+
+Canal: ${channelDescriptions[channel] || channel}
+
+Retorne um JSON:
+{
+  "title": "Título chamativo",
+  "body": "Corpo do texto formatado para ${channel}",
+  "hashtags": ["hashtag1", "hashtag2"],
+  "channel": "${channel}",
+  "tone": "Tom utilizado"
+}
+
+Retorne APENAS o JSON. Sem markdown. Sem explicações.
+`;
+
+  try {
+    let text = '{}';
+
+    if (config?.groqKey) {
+      text = await groqService.generateText(prompt, config.groqKey);
+    } else {
+      text = await groqService.generateText(prompt, config?.groqKey || '');
+    }
+
+    const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    const parsed = JSON.parse(cleanJson);
+
+    return {
+      title: parsed.title || topic,
+      body: parsed.body || '',
+      hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : [],
+      channel,
+      tone: parsed.tone || 'institucional',
+    };
+  } catch (error) {
+    logger.error('Error generating content:', error);
+    return {
+      title: topic,
+      body: '',
+      hashtags: [],
+      channel,
+      tone: 'institucional',
+    };
+  }
+};
+
+export const generateLegislativeText = async (
+  type: 'lei' | 'mocao' | 'requerimento' | 'oficio',
+  subject: string,
+  details: string,
+  config?: AIConfig
+): Promise<string> => {
+  const typeDescriptions: Record<string, string> = {
+    lei: 'Projeto de Lei',
+    mocao: 'Moção',
+    requerimento: 'Requerimento',
+    oficio: 'Ofício',
+  };
+
+  const prompt = `
+Elabore um ${typeDescriptions[type]} sobre: ${subject}
+
+Detalhes: ${details}
+
+Use linguagem jurídica adequada, seguindo o padrão legislativo brasileiro.
+Inclua: ementa, justificativa, artigos (se aplicável) e dispositivo final.
+
+Retorne o texto formatado em Markdown.
+`;
+
+  try {
+    if (config?.groqKey) {
+      return await groqService.generateText(prompt, config.groqKey);
+    }
+    return await groqService.generateText(prompt, config?.groqKey || '');
+  } catch (error) {
+    logger.error('Error generating legislative text:', error);
+    throw new Error('Falha ao gerar texto legislativo: ' + (error as any).message);
   }
 };

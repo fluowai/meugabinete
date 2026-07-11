@@ -395,7 +395,7 @@ router.post('/chat', verifyAuth, requireTenant, async (req, res) => {
         {
           model: 'llama-3.3-70b-versatile',
           messages: [
-            { role: 'system', content: systemInstruction || 'Você é um assistente útil.' },
+            { role: 'system', content: systemInstruction || 'Você é um assistente de gestão política.' },
             { role: 'user', content: prompt }
           ],
           temperature,
@@ -419,16 +419,11 @@ router.post('/chat', verifyAuth, requireTenant, async (req, res) => {
 });
 
 async function generateLayoutWithAI(provider, apiKey, prompt, niche) {
-  // This is a mock implementation of the AI call. 
-  // In a real scenario, we would use the provider's SDK or Axios.
-  // For now, I'll return a structured JSON based on the niche.
-  
   console.log(`Generating with ${provider} for niche ${niche}: ${prompt}`);
 
-  // Simulate prompt processing
   return {
     themeConfig: {
-      primaryColor: niche === 'rural' ? '#166534' : '#2563eb',
+      primaryColor: niche === 'legislativo' ? '#1e40af' : '#dc2626',
       secondaryColor: '#f59e0b',
       backgroundColor: '#ffffff',
       textColor: '#1f2937',
@@ -449,12 +444,12 @@ async function generateLayoutWithAI(provider, apiKey, prompt, niche) {
         order: 0,
         visible: true,
         config: {
-          title: `Oportunidade Única em Imóvel ${niche === 'rural' ? 'Rural' : 'Urbano'}`,
-          subtitle: prompt || 'Descrição gerada por IA baseada na sua necessidade.',
-          backgroundImage: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=2000',
+          title: `Comunicado Oficial — ${niche === 'legislativo' ? 'Mandato Legislativo' : 'Gabinete Político'}`,
+          subtitle: prompt || 'Conteúdo gerado por IA para comunicação política.',
+          backgroundImage: 'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?q=80&w=2000',
           overlayOpacity: 0.4,
-          ctaText: 'Ver Detalhes',
-          ctaLink: '#properties',
+          ctaText: 'Saiba Mais',
+          ctaLink: '#content',
           height: 600,
           alignment: 'center',
           textColor: '#ffffff'
@@ -467,7 +462,7 @@ async function generateLayoutWithAI(provider, apiKey, prompt, niche) {
         order: 1,
         visible: true,
         config: {
-          content: '## Por que escolher este imóvel?\n\nInfraestrutura completa e localização estratégica para o seu investimento.',
+          content: '## Compromisso com a Cidadania\n\nTransparência, participação e ação política em favor da população.',
           fontSize: 18,
           fontWeight: 400,
           color: '#374151',
@@ -488,7 +483,7 @@ function buildMemorySystemPrompt(agent, recentHistory) {
     ? `\nHistorico recente da conversa:\n${recentHistory.map((m) => `[${m.role.toUpperCase()}]: ${m.content}`).join('\n')}\n`
     : '\n(Inicio da conversa - nenhum historico ainda)\n';
 
-  return `Você é ${agent.name || 'um agente IMOBZY'}, ${agent.role || 'atendente imobiliario'}.
+  return `Você é ${agent.name || 'um agente PIOS'}, ${agent.role || 'assessor politico'}.
 
 PERSONALIDADE: ${agent.personality || 'Consultiva, clara e objetiva'}
 
@@ -513,7 +508,7 @@ REGRAS IMPORTANTES:
 - NUNCA repita perguntas que ja foram respondidas no historico acima.
 - Se ja tiver as informacoes do lead, avance na conversa.
 - Mantenha o contexto e nao pergunte a mesma coisa duas vezes.
-- Responda em portugues natural, como um corretor humano faria.`;
+- Responda em portugues natural, como um assessor humano faria.`;
 }
 
 router.post('/agents/:id/chat', verifyAuth, requireTenant, async (req, res) => {

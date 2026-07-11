@@ -3,7 +3,7 @@ import axios from 'axios';
 const DA_URL = process.env.DIRECT_ADMIN_URL;
 const DA_USER = process.env.DIRECT_ADMIN_USER;
 const DA_KEY = process.env.DIRECT_ADMIN_API_KEY;
-const MAIN_DOMAIN = process.env.WHM_MAIN_DOMAIN || 'imobfluow.com.br';
+const MAIN_DOMAIN = process.env.WHM_MAIN_DOMAIN || 'political-os.com.br';
 const PLATFORM_PUBLIC_IP =
   process.env.PLATFORM_PUBLIC_IP ||
   process.env.SERVER_PUBLIC_IP ||

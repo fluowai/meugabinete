@@ -19,76 +19,64 @@ interface FeatureFlag {
 
 const DEFAULT_FLAGS: FeatureFlag[] = [
   {
-    key: 'module_geointeligencia',
-    label: 'Geointeligência',
-    description: 'Mapas WMS/WFS e camadas GIS',
-    defaultEnabled: false,
-  },
-  {
-    key: 'module_due_diligence',
-    label: 'Due Diligence',
-    description: 'Checklists fundiários e ambientais',
-    defaultEnabled: false,
-  },
-  {
-    key: 'module_empreendimentos',
-    label: 'Empreendimentos',
-    description: 'Cadastro de lançamentos',
-    defaultEnabled: true,
-  },
-  {
-    key: 'module_locacao',
-    label: 'Locação',
-    description: 'Contratos de locação',
-    defaultEnabled: true,
-  },
-  {
-    key: 'module_exportador',
-    label: 'Exportador Portais',
-    description: 'Feed XML para portais imobiliários',
-    defaultEnabled: false,
-  },
-  {
-    key: 'module_compliance',
-    label: 'Compliance',
-    description: 'Checklist documental',
-    defaultEnabled: true,
-  },
-  {
-    key: 'module_ia_studio',
-    label: 'IA Studio',
-    description: 'Assistente de IA',
-    defaultEnabled: false,
-  },
-  {
-    key: 'module_landing_pages',
-    label: 'Landing Pages',
-    description: 'Editor de landing pages',
-    defaultEnabled: true,
-  },
-  {
-    key: 'module_dataroom',
-    label: 'Data Room',
-    description: 'Compartilhamento de documentos',
-    defaultEnabled: false,
-  },
-  {
-    key: 'module_portal_proprietario',
-    label: 'Portal Proprietário',
-    description: 'Portal para proprietários',
-    defaultEnabled: false,
-  },
-  {
     key: 'module_whatsapp',
     label: 'WhatsApp Integrado',
     description: 'Mensagens e automações WhatsApp',
     defaultEnabled: true,
   },
   {
-    key: 'max_properties',
-    label: 'Limite de Imóveis',
-    description: 'Limite de imóveis por plano',
+    key: 'module_ai_agents',
+    label: 'Agentes IA',
+    description: 'Assistentes de IA para atendimento',
     defaultEnabled: true,
+  },
+  {
+    key: 'module_crm',
+    label: 'CRM / Kanban',
+    description: 'Gestão de demandas e fluxo Kanban',
+    defaultEnabled: true,
+  },
+  {
+    key: 'module_territorial_maps',
+    label: 'Mapas Territoriais',
+    description: 'Mapeamento eleitoral e indicadores',
+    defaultEnabled: false,
+  },
+  {
+    key: 'module_campaigns',
+    label: 'Campanhas',
+    description: 'Gestão de campanhas políticas',
+    defaultEnabled: false,
+  },
+  {
+    key: 'module_content_calendar',
+    label: 'Calendário de Conteúdo',
+    description: 'Planejamento de publicações',
+    defaultEnabled: false,
+  },
+  {
+    key: 'module_surveys',
+    label: 'Pesquisas de Opinião',
+    description: 'Questionários e formulários',
+    defaultEnabled: false,
+  },
+  {
+    key: 'module_crisis_management',
+    label: 'Gestão de Crises',
+    description: 'Monitoramento e resposta a crises',
+    defaultEnabled: false,
+  },
+  {
+    key: 'module_mandate_projects',
+    label: 'Projetos de Mandato',
+    description: 'Acompanhamento de projetos legislativos',
+    defaultEnabled: false,
+  },
+  {
+    key: 'module_ai_agents_advanced',
+    label: 'IA Studio',
+    description: 'Personalização avançada de agentes IA',
+    defaultEnabled: false,
   },
 ];
 
@@ -102,18 +90,18 @@ const FeatureFlags: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        console.log('📡 [FeatureFlags] Buscando imobiliárias...');
+        console.log('📡 [FeatureFlags] Buscando organizações...');
         const { data, error } = await supabase
           .from('organizations')
           .select('id, name, feature_flags')
           .order('name');
         
         if (error) {
-          console.error('❌ [FeatureFlags] Erro ao buscar imobiliárias:', error.message);
+          console.error('❌ [FeatureFlags] Erro ao buscar organizações:', error.message);
           return;
         }
 
-        console.log(`✅ [FeatureFlags] ${data?.length || 0} imobiliárias carregadas.`);
+        console.log(`✅ [FeatureFlags] ${data?.length || 0} organizações carregadas.`);
         setTenants(data || []);
       } catch (err: any) {
         console.error('❌ [FeatureFlags] Erro inesperado:', err.message);
@@ -178,7 +166,7 @@ const FeatureFlags: React.FC = () => {
             onChange={(e) => setSelectedTenant(e.target.value)}
             className="flex-1 px-4 py-3 bg-gray-50 rounded-xl border border-gray-200 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500/30"
           >
-            <option value="">Selecione uma imobiliária</option>
+            <option value="">Selecione uma organização</option>
             {tenants.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
@@ -250,7 +238,7 @@ const FeatureFlags: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
           <ToggleRight className="mx-auto text-gray-300 mb-4" size={48} />
           <h3 className="text-lg font-bold text-gray-500 mb-2">
-            Selecione uma Imobiliária
+            Selecione uma Organização
           </h3>
           <p className="text-sm text-gray-400">
             Escolha um tenant para gerenciar suas feature flags.

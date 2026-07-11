@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Users, MessageSquare, LayoutGrid, Phone, Mail, Plus } from 'lucide-react';
+import { LayoutGrid, Mail, MessageSquare, Phone, Search, Users, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { leadService } from '../../services/leads';
 import { Lead } from '../../types';
@@ -21,8 +21,8 @@ const CRMLeads: React.FC = () => {
       const data = await leadService.list();
       setLeads(data);
     } catch (error: any) {
-      logger.error('Failed to load CRM leads', error);
-      toast.error('Erro ao carregar CRM: ' + error.message);
+      logger.error('Failed to load citizen records', error);
+      toast.error('Erro ao carregar cidadaos: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -38,60 +38,68 @@ const CRMLeads: React.FC = () => {
     );
   }, [leads, searchTerm]);
 
-  const kanbanPath = window.location.pathname.startsWith('/rural') ? '/rural/kanban' : '/urban/kanban';
-  const messagesPath = window.location.pathname.startsWith('/rural') ? '/rural/whatsapp' : '/urban/whatsapp';
+  const kanbanPath = '/gabinete/demandas';
+  const messagesPath = '/gabinete/whatsapp';
 
   if (loading) {
-    return <div className="p-10 text-center text-slate-500 font-semibold">Carregando CRM...</div>;
+    return <div className="p-10 text-center font-semibold text-slate-500">Carregando cidadaos...</div>;
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div>
           <span className="text-xs font-black uppercase tracking-[0.18em] text-primary">Relacionamento</span>
-          <h1 className="text-3xl font-black text-slate-950 tracking-tight">CRM</h1>
-          <p className="text-sm text-slate-500 font-medium mt-1">
-            Base central de leads, contatos e histórico comercial.
+          <h1 className="text-3xl font-black tracking-tight text-slate-950">Cidadaos</h1>
+          <p className="mt-1 text-sm font-medium text-slate-500">
+            Base central de contatos, historico de atendimento e demandas.
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row">
           <Link
             to={kanbanPath}
-            className="h-11 px-5 rounded-xl bg-primary text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:bg-primary-hover transition-colors"
+            className="flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary-hover"
           >
             <LayoutGrid size={18} />
-            Abrir Kanban
+            Abrir demandas
           </Link>
           <Link
             to={messagesPath}
-            className="h-11 px-5 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold flex items-center justify-center gap-2 hover:border-primary/40 hover:text-primary transition-colors"
+            className="flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 font-bold text-slate-700 transition-colors hover:border-primary/40 hover:text-primary"
           >
             <MessageSquare size={18} />
-            Mensagens
+            WhatsApp
           </Link>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <MetricCard label="Leads totais" value={leads.length} icon={Users} />
-        <MetricCard label="Em atendimento" value={leads.filter((lead) => ['Em Atendimento', 'Qualificacao', 'Qualificação'].includes(String(lead.status))).length} icon={Phone} />
-        <MetricCard label="Fechados" value={leads.filter((lead) => String(lead.status).toLowerCase().includes('fechado')).length} icon={Plus} />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <MetricCard label="Cidadaos" value={leads.length} icon={Users} />
+        <MetricCard
+          label="Em atendimento"
+          value={leads.filter((lead) => ['Em Atendimento', 'Triagem', 'Aguardando Informacoes'].includes(String(lead.status))).length}
+          icon={Phone}
+        />
+        <MetricCard
+          label="Resolvidas"
+          value={leads.filter((lead) => ['Resolvida', 'Respondida', 'Fechado'].includes(String(lead.status))).length}
+          icon={CheckCircle2}
+        />
       </div>
 
-      <section className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="flex flex-col justify-between gap-3 border-b border-slate-100 p-4 md:flex-row md:items-center">
           <div>
-            <h2 className="font-black text-slate-900">Leads</h2>
-            <p className="text-xs text-slate-500">Lista operacional separada do quadro Kanban.</p>
+            <h2 className="font-black text-slate-900">Contatos e historico</h2>
+            <p className="text-xs text-slate-500">Lista operacional separada do quadro de demandas.</p>
           </div>
           <div className="relative w-full md:w-80">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              className="w-full h-10 pl-10 pr-4 rounded-lg border border-slate-200 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none text-sm"
+              className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-4 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               placeholder="Buscar por nome, telefone, origem..."
             />
           </div>
@@ -102,7 +110,7 @@ const CRMLeads: React.FC = () => {
             <article key={lead.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-black text-slate-950 truncate">{lead.name}</p>
+                  <p className="truncate font-black text-slate-950">{lead.name}</p>
                   <p className="text-xs font-semibold text-slate-400">{lead.classification || 'Sem classificacao'}</p>
                 </div>
                 <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-black text-primary">
@@ -118,26 +126,24 @@ const CRMLeads: React.FC = () => {
 
               <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 text-xs font-bold text-slate-400">
                 <span>{lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('pt-BR') : 'Sem data'}</span>
-                <Link to={kanbanPath} className="text-primary">Abrir no Kanban</Link>
+                <Link to={kanbanPath} className="text-primary">Abrir demanda</Link>
               </div>
             </article>
           ))}
           {filteredLeads.length === 0 ? (
-            <div className="px-5 py-12 text-center text-slate-400 font-semibold">
-              Nenhum lead encontrado.
-            </div>
+            <div className="px-5 py-12 text-center font-semibold text-slate-400">Nenhum cidadao encontrado.</div>
           ) : null}
         </div>
 
         <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
+            <thead className="border-b border-slate-200 bg-slate-50">
               <tr>
-                <th className="text-left px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-400">Lead</th>
-                <th className="text-left px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-400">Contato</th>
-                <th className="text-left px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-400">Origem</th>
-                <th className="text-left px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-400">Etapa</th>
-                <th className="text-left px-5 py-3 text-xs font-black uppercase tracking-widest text-slate-400">Criado em</th>
+                <th className="px-5 py-3 text-left text-xs font-black uppercase tracking-widest text-slate-400">Cidadao</th>
+                <th className="px-5 py-3 text-left text-xs font-black uppercase tracking-widest text-slate-400">Contato</th>
+                <th className="px-5 py-3 text-left text-xs font-black uppercase tracking-widest text-slate-400">Origem</th>
+                <th className="px-5 py-3 text-left text-xs font-black uppercase tracking-widest text-slate-400">Etapa</th>
+                <th className="px-5 py-3 text-left text-xs font-black uppercase tracking-widest text-slate-400">Criado em</th>
               </tr>
             </thead>
             <tbody>
@@ -155,7 +161,7 @@ const CRMLeads: React.FC = () => {
                   </td>
                   <td className="px-5 py-4 text-slate-600">{lead.source || '-'}</td>
                   <td className="px-5 py-4">
-                    <span className="inline-flex px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-black">
+                    <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-xs font-black text-primary">
                       {lead.status || 'Novo'}
                     </span>
                   </td>
@@ -166,8 +172,8 @@ const CRMLeads: React.FC = () => {
               ))}
               {filteredLeads.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-5 py-12 text-center text-slate-400 font-semibold">
-                    Nenhum lead encontrado.
+                  <td colSpan={5} className="px-5 py-12 text-center font-semibold text-slate-400">
+                    Nenhum cidadao encontrado.
                   </td>
                 </tr>
               ) : null}
@@ -180,12 +186,12 @@ const CRMLeads: React.FC = () => {
 };
 
 const MetricCard: React.FC<{ label: string; value: number; icon: React.ElementType }> = ({ label, value, icon: Icon }) => (
-  <div className="bg-white border border-slate-200 rounded-xl p-5 flex items-center justify-between">
+  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-5">
     <div>
       <p className="text-xs font-black uppercase tracking-widest text-slate-400">{label}</p>
-      <p className="text-3xl font-black text-slate-950 mt-1">{value}</p>
+      <p className="mt-1 text-3xl font-black text-slate-950">{value}</p>
     </div>
-    <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
       <Icon size={21} />
     </div>
   </div>

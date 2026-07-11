@@ -46,11 +46,9 @@ export const setupWhatsAppProxy = (app, server, verifyAuth, requireTenant) => {
     : [];
 
   const allowedOrigins = new Set([
-    'https://app.imobfluow.com.br',
-    'https://imobfluow.com.br',
-    'https://www.imobfluow.com.br',
-    'https://okaimoveis.com.br',
-    'https://www.okaimoveis.com.br',
+    'https://app.political-os.com.br',
+    'https://political-os.com.br',
+    'https://www.political-os.com.br',
     ...envAllowedOrigins,
   ]);
 
@@ -276,8 +274,8 @@ function verifyWsToken(token) {
 
   try {
     const payload = jwt.verify(token, secret, {
-      issuer: 'imobzy-api',
-      audience: 'imobzy-whatsapp-ws',
+      issuer: 'pios-api',
+      audience: 'pios-whatsapp-ws',
     });
     if (payload?.purpose !== 'whatsapp_ws' || !payload.sub || !payload.org_id) return null;
     return payload;
@@ -302,8 +300,8 @@ function issueWsToken(req, res) {
     secret,
     {
       expiresIn: '5m',
-      issuer: 'imobzy-api',
-      audience: 'imobzy-whatsapp-ws',
+      issuer: 'pios-api',
+      audience: 'pios-whatsapp-ws',
     }
   );
 

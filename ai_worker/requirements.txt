@@ -1,7 +1,0 @@
-torch
-transformers
-requests
-supabase
-scipy
-accelerate
-soundfile

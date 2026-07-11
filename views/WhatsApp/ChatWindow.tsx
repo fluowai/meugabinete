@@ -194,9 +194,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       const result = await crmContactApi.link(crmPayload());
       setCrmLead(result.lead || null);
       setCrmTags(result.tags || []);
-      toast.success('Contato vinculado ao CRM.');
+      toast.success('Contato vinculado ao gabinete.');
     } catch (err: any) {
-      toast.error(err?.message || 'Erro ao vincular contato ao CRM.');
+      toast.error(err?.message || 'Erro ao vincular contato ao gabinete.');
     } finally {
       setCrmActionLoading(false);
     }
@@ -261,7 +261,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       const result = await crmContactApi.markPriority(crmPayload());
       setCrmLead(result.lead || null);
       setCrmTags(result.tags || []);
-      toast.success('Contato marcado como prioridade.');
+      toast.success('Demanda marcada como prioridade.');
     } catch (err: any) {
       toast.error(err?.message || 'Erro ao marcar prioridade.');
     } finally {
@@ -282,7 +282,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       });
       setCrmLead(result.lead || null);
       setCrmTags(result.tags || []);
-      toast.success('Tarefa criada para o atendimento.');
+      toast.success('Tarefa criada para a demanda.');
     } catch (err: any) {
       toast.error(err?.message || 'Erro ao criar tarefa.');
     } finally {
@@ -381,7 +381,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
               <>
                 <h3>{chatName}</h3>
                 <button type="button" className="wa-contact-edit-btn" onClick={() => setEditingName(true)}>
-                  Editar nome do lead
+                  Editar nome do cidadão
                 </button>
               </>
             )}
@@ -389,8 +389,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
           <div className="wa-contact-fields">
             <div>
-              <span>CRM</span>
-              <strong>{crmLead ? `Vinculado: ${crmLead.name || crmLead.phone}` : 'Nao vinculado'}</strong>
+              <span>Gabinete</span>
+              <strong>{crmLead ? `Demanda: ${crmLead.protocol || crmLead.name || crmLead.phone}` : 'Nao vinculado'}</strong>
             </div>
             {crmTags.length > 0 && (
               <div>
@@ -475,7 +475,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
               disabled={crmActionLoading || chat.is_group || !rawPhone}
             >
               <UserRound size={16} />
-              {crmLead ? 'Atualizar CRM' : 'Vincular ao CRM'}
+              {crmLead ? 'Atualizar demanda' : 'Criar demanda'}
             </button>
             <button
               type="button"

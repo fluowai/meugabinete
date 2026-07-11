@@ -1,81 +1,51 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { callApi } from '../src/lib/api';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Building2,
-  Tractor,
-  Home,
-  CheckCircle2,
   ArrowRight,
   Bot,
-  MessageSquare,
-  Users,
+  CheckCircle2,
+  ClipboardList,
   Loader2,
-  Mail,
   Lock,
+  Mail,
+  MessageSquare,
+  ShieldCheck,
   User,
-  Zap,
-  Globe
+  Users,
 } from 'lucide-react';
-import { getTenantBaseUrl } from '../utils/platform';
-import { motion, AnimatePresence } from 'framer-motion';
-
-const SITE_TEMPLATES = {
-  rural: [
-    { id: 'r1', name: 'Fazenda Premium', color: 'emerald', image: '/templates/template_lifestyle.png' },
-    { id: 'r2', name: 'Agro Business', color: 'green', image: '/templates/template_production.png' },
-    { id: 'r3', name: 'Haras & Sítios', color: 'amber', image: '/templates/template_tractor_soil.png' },
-  ],
-  urban: [
-    { id: 'u1', name: 'Urbano Minimal', color: 'slate', image: '/templates/urban/urban_apartment_center.png' },
-    { id: 'u2', name: 'City Connect', color: 'blue', image: '/templates/urban/urban_exclusive_launch.png' },
-    { id: 'u3', name: 'Família & Lar', color: 'indigo', image: '/templates/urban/urban_gated_community.png' },
-  ]
-};
+import { callApi } from '../src/lib/api';
 
 const Onboarding: React.FC = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState<any>(null);
 
   const [formData, setFormData] = useState({
-    // Step 1: Account & Profile
     name: '',
     email: '',
     password: '',
-    agencyName: '',
-    cnpj: '',
-    niche: 'urban' as 'rural' | 'urban',
-    template: '',
-    
-    // Step 2: AI
-    llmProvider: 'openai',
-    apiKey: '',
-    
-    // Step 3: WhatsApp
-    welcomeMessage: 'Olá! Sou o assistente virtual. Como posso ajudar?',
-    
-    // Step 4: Team
-    teamEmails: ['', '', '']
+    officeName: '',
+    welcomeMessage: 'Ola! Sou o assistente do gabinete. Como posso ajudar?',
+    teamEmails: ['', '', ''],
   });
 
   const update = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
     setError('');
   };
 
   const updateTeamEmail = (index: number, value: string) => {
-    const newEmails = [...formData.teamEmails];
-    newEmails[index] = value;
-    update('teamEmails', newEmails);
+    const teamEmails = [...formData.teamEmails];
+    teamEmails[index] = value;
+    update('teamEmails', teamEmails);
   };
 
   const handleNext = async () => {
     if (step === 1) {
-      if (!formData.name || !formData.email || !formData.password || !formData.agencyName || !formData.template) {
-        setError('Preencha todos os campos obrigatórios e escolha um template.');
+      if (!formData.name || !formData.email || !formData.password || !formData.officeName) {
+        setError('Preencha nome, e-mail, senha e nome do gabinete.');
         return;
       }
       if (formData.password.length < 6) {
@@ -84,24 +54,22 @@ const Onboarding: React.FC = () => {
       }
     }
 
-    if (step === 4) {
-      // Final Submit
+    if (step === 3) {
       setLoading(true);
       setError('');
       try {
-        const data = await callApi('/api/onboarding', {
+        await callApi('/api/onboarding', {
           method: 'POST',
           body: JSON.stringify({
             name: formData.name,
             email: formData.email,
             password: formData.password,
-            agencyName: formData.agencyName,
-            profileType: formData.niche === 'rural' ? 'rural' : 'traditional',
-            plan: 'pro' // Defaulting to pro as requested in previous flow to avoid free plan limitations
+            agencyName: formData.officeName,
+            profileType: 'traditional',
+            plan: 'pro',
           }),
         });
-        setSuccess(data);
-        setStep(5);
+        setStep(4);
       } catch (err: any) {
         setError(err.message || 'Erro ao criar conta. Tente novamente.');
       } finally {
@@ -110,225 +78,162 @@ const Onboarding: React.FC = () => {
       return;
     }
 
-    setStep(s => s + 1);
+    setStep((current) => current + 1);
   };
-
-  // =====================================
-  // UI STEPS
-  // =====================================
 
   const renderStep1 = () => (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-black text-slate-900">O Perfil da sua Imobiliária</h2>
-        <p className="text-slate-500 mt-2">Vamos preparar a sua fundação digital.</p>
+      <div className="text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
+          <ShieldCheck size={28} />
+        </div>
+        <h2 className="text-2xl font-black text-slate-950">Crie seu gabinete digital</h2>
+        <p className="mt-2 text-sm font-medium text-slate-500">
+          Configure a conta principal e o espaco da sua equipe.
+        </p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Seu Nome *</label>
-          <div className="relative">
-            <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input type="text" value={formData.name} onChange={e => update('name', e.target.value)} className="w-full pl-11 pr-4 py-3 bg-white rounded-xl border border-slate-200 outline-none focus:border-blue-500 transition-colors" placeholder="Nome completo" />
-          </div>
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Email Profissional *</label>
-          <div className="relative">
-            <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input type="email" value={formData.email} onChange={e => update('email', e.target.value)} className="w-full pl-11 pr-4 py-3 bg-white rounded-xl border border-slate-200 outline-none focus:border-blue-500 transition-colors" placeholder="seu@email.com.br" />
-          </div>
-        </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field
+          label="Seu nome"
+          icon={<User size={16} />}
+          value={formData.name}
+          onChange={(value) => update('name', value)}
+          placeholder="Nome completo"
+        />
+        <Field
+          label="E-mail"
+          type="email"
+          icon={<Mail size={16} />}
+          value={formData.email}
+          onChange={(value) => update('email', value)}
+          placeholder="voce@gabinete.gov.br"
+        />
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Nome da Imobiliária *</label>
-          <div className="relative">
-            <Building2 size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input type="text" value={formData.agencyName} onChange={e => update('agencyName', e.target.value)} className="w-full pl-11 pr-4 py-3 bg-white rounded-xl border border-slate-200 outline-none focus:border-blue-500 transition-colors" placeholder="Ex: Nobre Imóveis" />
-          </div>
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Senha Segura *</label>
-          <div className="relative">
-            <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input type="password" value={formData.password} onChange={e => update('password', e.target.value)} className="w-full pl-11 pr-4 py-3 bg-white rounded-xl border border-slate-200 outline-none focus:border-blue-500 transition-colors" placeholder="Mínimo 6 caracteres" />
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-xs font-bold text-slate-500 uppercase mb-3">Qual é o seu foco principal?</label>
-        <div className="grid grid-cols-2 gap-4">
-          <button onClick={() => update('niche', 'urban')} className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${formData.niche === 'urban' ? 'border-blue-500 bg-blue-50' : 'border-slate-100 bg-white hover:border-slate-200'}`}>
-            <Home size={24} className={formData.niche === 'urban' ? 'text-blue-600' : 'text-slate-400'} />
-            <span className={`font-bold ${formData.niche === 'urban' ? 'text-blue-900' : 'text-slate-600'}`}>Urbano</span>
-          </button>
-          <button onClick={() => update('niche', 'rural')} className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${formData.niche === 'rural' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-100 bg-white hover:border-slate-200'}`}>
-            <Tractor size={24} className={formData.niche === 'rural' ? 'text-emerald-600' : 'text-slate-400'} />
-            <span className={`font-bold ${formData.niche === 'rural' ? 'text-emerald-900' : 'text-slate-600'}`}>Rural</span>
-          </button>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-xs font-bold text-slate-500 uppercase mb-3">Escolha o Tema do seu Site *</label>
-        <div className="grid grid-cols-3 gap-3">
-          {SITE_TEMPLATES[formData.niche].map(t => (
-            <button key={t.id} onClick={() => update('template', t.id)} className={`p-3 rounded-xl border-2 text-left transition-all ${formData.template === t.id ? (formData.niche === 'urban' ? 'border-blue-500 bg-blue-50' : 'border-emerald-500 bg-emerald-50') : 'border-slate-100 bg-white hover:border-slate-200'}`}>
-              {t.image ? (
-                <div className={`w-full h-24 rounded-lg mb-2 border overflow-hidden ${formData.template === t.id ? `border-${t.color}-500 ring-2 ring-${t.color}-500/20` : `border-slate-200`}`}>
-                  <img src={t.image} alt={t.name} className="w-full h-full object-cover" />
-                </div>
-              ) : (
-                <div className={`w-full h-24 rounded-lg bg-${t.color}-100 mb-2 border border-${t.color}-200`} />
-              )}
-              <p className="text-xs font-bold text-slate-700 text-center">{t.name}</p>
-            </button>
-          ))}
-        </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field
+          label="Nome do gabinete"
+          icon={<ClipboardList size={16} />}
+          value={formData.officeName}
+          onChange={(value) => update('officeName', value)}
+          placeholder="Gabinete Popular"
+        />
+        <Field
+          label="Senha"
+          type="password"
+          icon={<Lock size={16} />}
+          value={formData.password}
+          onChange={(value) => update('password', value)}
+          placeholder="Minimo 6 caracteres"
+        />
       </div>
     </motion.div>
   );
 
   const renderStep2 = () => (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-      <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <Bot size={32} className="text-blue-600" />
+      <div className="text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+          <MessageSquare size={28} />
         </div>
-        <h2 className="text-2xl font-black text-slate-900">Inteligência Artificial</h2>
-        <p className="text-slate-500 mt-2">Conecte o "cérebro" que vai atender seus clientes 24h por dia.</p>
+        <h2 className="text-2xl font-black text-slate-950">Canais e triagem</h2>
+        <p className="mt-2 text-sm font-medium text-slate-500">
+          O WhatsApp sera conectado dentro do painel, com QR Code seguro.
+        </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        {['openai', 'gemini'].map(llm => (
-          <button key={llm} onClick={() => update('llmProvider', llm)} className={`p-4 rounded-xl border-2 flex items-center justify-center gap-2 transition-all ${formData.llmProvider === llm ? 'border-blue-500 bg-blue-50' : 'border-slate-100 bg-white hover:border-slate-200'}`}>
-            <span className="font-bold text-slate-700 uppercase">{llm}</span>
-          </button>
-        ))}
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+        <div className="mb-4 flex items-center gap-3">
+          <Bot className="text-blue-600" size={22} />
+          <div>
+            <p className="font-black text-slate-900">Mensagem inicial da IA</p>
+            <p className="text-xs font-medium text-slate-500">Voce pode ajustar isso depois.</p>
+          </div>
+        </div>
+        <textarea
+          value={formData.welcomeMessage}
+          onChange={(e) => update('welcomeMessage', e.target.value)}
+          className="h-28 w-full resize-none rounded-2xl border border-slate-200 bg-white p-4 text-sm font-semibold outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+        />
       </div>
 
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Sua API Key (Opcional por agora)</label>
-        <input type="password" value={formData.apiKey} onChange={e => update('apiKey', e.target.value)} className="w-full px-4 py-3 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-blue-500 transition-colors font-mono text-sm" placeholder="sk-..." />
-        <p className="text-xs text-slate-400 mt-2">Você pode pular e configurar isso mais tarde no painel.</p>
+      <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5 text-sm font-semibold text-blue-800">
+        O painel ja nasce com etapas de demanda, SLA, prioridade, relatorios e acompanhamento por responsavel.
       </div>
     </motion.div>
   );
 
   const renderStep3 = () => (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-      <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <MessageSquare size={32} className="text-emerald-600" />
+      <div className="text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600">
+          <Users size={28} />
         </div>
-        <h2 className="text-2xl font-black text-slate-900">Conexão WhatsApp</h2>
-        <p className="text-slate-500 mt-2">Onde a mágica do atendimento acontece.</p>
+        <h2 className="text-2xl font-black text-slate-950">Convide sua equipe</h2>
+        <p className="mt-2 text-sm font-medium text-slate-500">
+          Adicione assessores, atendimento e coordenacao. Opcional por agora.
+        </p>
       </div>
 
-      <div className="bg-slate-50 p-8 rounded-2xl border border-slate-200 flex flex-col items-center justify-center text-center space-y-4">
-         <div className="w-48 h-48 bg-white border-2 border-dashed border-slate-300 rounded-2xl flex items-center justify-center">
-            <p className="text-slate-400 font-medium text-sm px-4">O QR Code aparecerá no seu painel administrativo.</p>
-         </div>
-         <p className="text-sm text-slate-600">Conectaremos o WhatsApp diretamente por lá para maior segurança.</p>
-      </div>
-
-      <div>
-        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Mensagem de Saudação da IA</label>
-        <textarea value={formData.welcomeMessage} onChange={e => update('welcomeMessage', e.target.value)} className="w-full px-4 py-3 bg-white rounded-xl border border-slate-200 outline-none focus:border-blue-500 transition-colors resize-none h-24" />
-      </div>
-    </motion.div>
-  );
-
-  const renderStep4 = () => (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-      <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <Users size={32} className="text-indigo-600" />
-        </div>
-        <h2 className="text-2xl font-black text-slate-900">Convide sua Equipe</h2>
-        <p className="text-slate-500 mt-2">Convide corretores ou sócios para colaborar com você. (Opcional)</p>
-      </div>
-
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-        {formData.teamEmails.map((email, idx) => (
-          <div key={idx}>
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Corretor {idx + 1}</label>
-            <div className="relative">
-              <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="email" value={email} onChange={e => updateTeamEmail(idx, e.target.value)} className="w-full pl-11 pr-4 py-3 bg-slate-50 rounded-xl border border-slate-200 outline-none focus:border-indigo-500 transition-colors" placeholder="email@exemplo.com" />
-            </div>
-          </div>
+      <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
+        {formData.teamEmails.map((email, index) => (
+          <Field
+            key={index}
+            label={`Integrante ${index + 1}`}
+            type="email"
+            icon={<Mail size={16} />}
+            value={email}
+            onChange={(value) => updateTeamEmail(index, value)}
+            placeholder="email@exemplo.com"
+          />
         ))}
       </div>
     </motion.div>
   );
 
-  const renderStep5 = () => {
-    const slug = formData.agencyName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    
-    return (
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-6 py-8">
-        <div className="w-24 h-24 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-xl shadow-emerald-200">
-          <CheckCircle2 size={48} className="text-white" />
-        </div>
-        
-        <div>
-          <h2 className="text-3xl font-black text-slate-900">Tudo Pronto!</h2>
-          <p className="text-slate-500 mt-2 text-lg">Sua infraestrutura de vendas foi gerada.</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-left space-y-4 max-w-md mx-auto">
-          <div className="flex items-center gap-3">
-            <Zap size={20} className="text-amber-500" />
-            <span className="font-bold text-slate-700">IA Configurada e Pronta</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Globe size={20} className="text-blue-500" />
-            <div>
-              <span className="font-bold text-slate-700 block">Seu Site Oficial</span>
-              <span className="text-xs text-slate-500 font-mono">{getTenantBaseUrl(slug)}</span>
-            </div>
-          </div>
-        </div>
-
-        <button onClick={() => navigate('/login')} className="w-full max-w-md mx-auto bg-slate-900 text-white p-4 rounded-xl font-bold text-lg hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20">
-          Acessar Meu Painel →
-        </button>
-      </motion.div>
-    );
-  };
+  const renderStep4 = () => (
+    <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="py-8 text-center">
+      <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-emerald-500 text-white shadow-xl shadow-emerald-500/20">
+        <CheckCircle2 size={48} />
+      </div>
+      <h2 className="text-3xl font-black text-slate-950">Tudo pronto</h2>
+      <p className="mx-auto mt-3 max-w-md text-sm font-medium leading-6 text-slate-500">
+        Seu gabinete foi criado. Entre para configurar WhatsApp, equipe, categorias e fluxos de demanda.
+      </p>
+      <button
+        onClick={() => navigate('/login')}
+        className="mt-8 inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-7 py-4 font-black text-white hover:bg-slate-800"
+      >
+        Acessar painel <ArrowRight size={18} />
+      </button>
+    </motion.div>
+  );
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 selection:bg-blue-100">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-4">
       <div className="w-full max-w-2xl">
-        
-        {/* Header Progress */}
-        {step < 5 && (
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-black text-slate-400 uppercase tracking-wider">Passo {step} de 4</span>
-              <span className="text-xs font-bold text-blue-600">
-                {step === 1 && 'Fundação'}
-                {step === 2 && 'Inteligência'}
-                {step === 3 && 'Canais'}
-                {step === 4 && 'Equipe'}
+        {step < 4 && (
+          <div className="mb-6">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                Passo {step} de 3
+              </span>
+              <span className="text-xs font-black text-blue-600">
+                {step === 1 && 'Conta'}
+                {step === 2 && 'Atendimento'}
+                {step === 3 && 'Equipe'}
               </span>
             </div>
-            <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
-              <div className="h-full bg-blue-600 rounded-full transition-all duration-500" style={{ width: `${(step / 4) * 100}%` }} />
+            <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${(step / 3) * 100}%` }} />
             </div>
           </div>
         )}
 
-        {/* Content Box */}
-        <div className={`bg-white rounded-[2rem] shadow-2xl shadow-slate-900/5 p-8 md:p-10 border border-slate-100 ${step === 5 ? 'border-emerald-100 bg-gradient-to-b from-emerald-50/50 to-white' : ''}`}>
-          
+        <div className="rounded-[2rem] border border-slate-100 bg-white p-7 shadow-2xl shadow-slate-900/5 md:p-10">
           {error && (
-            <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl text-sm font-bold border border-red-100 flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-red-600" />
+            <div className="mb-6 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-red-600">
               {error}
             </div>
           )}
@@ -338,31 +243,58 @@ const Onboarding: React.FC = () => {
             {step === 2 && renderStep2()}
             {step === 3 && renderStep3()}
             {step === 4 && renderStep4()}
-            {step === 5 && renderStep5()}
           </AnimatePresence>
 
-          {/* Footer Controls */}
-          {step < 5 && (
-            <div className="mt-10 flex items-center justify-between pt-6 border-t border-slate-100">
-              <button onClick={() => setStep(s => Math.max(1, s - 1))} className={`px-6 py-3 font-bold text-slate-500 hover:text-slate-800 transition-colors ${step === 1 ? 'opacity-0 pointer-events-none' : ''}`}>
+          {step < 4 && (
+            <div className="mt-10 flex items-center justify-between border-t border-slate-100 pt-6">
+              <button
+                onClick={() => setStep((current) => Math.max(1, current - 1))}
+                className={`px-5 py-3 font-black text-slate-500 transition hover:text-slate-900 ${
+                  step === 1 ? 'pointer-events-none opacity-0' : ''
+                }`}
+              >
                 Voltar
               </button>
-              
-              <button onClick={handleNext} disabled={loading} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-70 shadow-lg shadow-blue-600/20">
-                {loading ? <Loader2 size={18} className="animate-spin" /> : (
-                  <>
-                    {step === 4 ? 'Concluir Setup' : 'Avançar'}
-                    <ArrowRight size={18} />
-                  </>
-                )}
+
+              <button
+                onClick={handleNext}
+                disabled={loading}
+                className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-7 py-3 font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {loading ? <Loader2 className="animate-spin" size={18} /> : step === 3 ? 'Concluir' : 'Avancar'}
+                {!loading && <ArrowRight size={18} />}
               </button>
             </div>
           )}
-
         </div>
       </div>
     </div>
   );
 };
+
+interface FieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  icon: React.ReactNode;
+  type?: string;
+}
+
+const Field: React.FC<FieldProps> = ({ label, value, onChange, placeholder, icon, type = 'text' }) => (
+  <label className="block">
+    <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">{label}</span>
+    <span className="relative block">
+      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">{icon}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pl-11 pr-4 text-sm font-semibold outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+        placeholder={placeholder}
+      />
+    </span>
+  </label>
+);
 
 export default Onboarding;

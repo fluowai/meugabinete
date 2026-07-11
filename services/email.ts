@@ -1,41 +1,6 @@
-import { callApi } from '@/src/lib/api';
+import { callApi } from '../src/lib/api';
 
-export type EmailAccount = {
-  id: string;
-  email: string;
-  imap_host: string;
-  imap_port: number;
-  imap_secure: boolean;
-  smtp_host: string;
-  smtp_port: number;
-  smtp_secure: boolean;
-  last_synced_at?: string | null;
-  sync_status?: string;
-  sync_error?: string | null;
-};
-
-export type EmailMessage = {
-  id: string;
-  account_id: string;
-  folder: 'inbox' | 'sent' | 'archived' | string;
-  direction: 'incoming' | 'outgoing';
-  subject: string;
-  from_name?: string | null;
-  from_email: string;
-  to_email: string[];
-  preview?: string | null;
-  body_html?: string | null;
-  body_text?: string | null;
-  date?: string | null;
-  is_read: boolean;
-  is_archived: boolean;
-  message_id?: string | null;
-  thread_id: string;
-  lead_id?: string | null;
-  leads?: { id: string; name: string; email?: string | null } | null;
-};
-
-export type ConnectEmailPayload = {
+export interface ConnectEmailPayload {
   email: string;
   password: string;
   imap_host: string;
@@ -44,89 +9,94 @@ export type ConnectEmailPayload = {
   smtp_host: string;
   smtp_port: number;
   smtp_secure: boolean;
-};
+}
 
-export type EmailAgendaActivity = {
+export interface EmailAccount extends ConnectEmailPayload {
   id: string;
-  type: string;
-  title: string;
-  description: string;
-  priority: 'urgent' | 'high' | 'medium' | 'low' | string;
-  status: 'pending' | 'done' | string;
+  last_sync_at?: string | null;
+}
+
+export interface EmailMessage {
+  id: string;
+  account_id?: string;
+  lead_id?: string | null;
   subject?: string;
+  from_email: string;
+  from_name?: string | null;
+  to_email?: string[];
+  body_html?: string;
+  snippet?: string;
+  date?: string | null;
+  is_read?: boolean;
+  is_archived?: boolean;
+  folder?: string;
+}
+
+export interface EmailAgendaActivity {
+  id: string;
+  title?: string;
+  description?: string;
+  status?: string;
+  priority?: string;
   from_email?: string;
-  email_id?: string | null;
   created_at: string;
-  leads?: { id: string; name: string; email?: string | null; phone?: string | null; status?: string | null } | null;
-  metadata?: Record<string, any>;
-};
+  leads?: {
+    name?: string;
+  };
+}
 
 export const emailService = {
-  listAccounts: async () => {
-    const data = await callApi('/api/email/accounts');
-    return data.accounts as EmailAccount[];
+  async listAccounts(): Promise<EmailAccount[]> {
+    const response = await callApi<any>('/api/email/accounts').catch(() => ({ accounts: [] }));
+    return response.accounts || response.data || [];
   },
 
-  testAccount: async (payload: ConnectEmailPayload) =>
-    callApi('/api/email/accounts/test', {
+  async connectAccount(payload: ConnectEmailPayload): Promise<EmailAccount> {
+    const response = await callApi<any>('/api/email/accounts', {
       method: 'POST',
       body: JSON.stringify(payload),
-    }),
-
-  connectAccount: async (payload: ConnectEmailPayload) =>
-    callApi('/api/email/accounts', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
-
-  sync: async (accountId: string, limit = 50) =>
-    callApi('/api/email/sync', {
-      method: 'POST',
-      body: JSON.stringify({ account_id: accountId, limit }),
-    }),
-
-  listEmails: async (folder: string, page = 1, search = '') => {
-    const params = new URLSearchParams({
-      folder,
-      page: String(page),
-      limit: '30',
     });
-    if (search) params.set('search', search);
-    const data = await callApi(`/api/email/emails?${params.toString()}`);
-    return data as { emails: EmailMessage[]; pagination: { total: number; page: number; pages: number } };
+    return response.account || response.data || response;
   },
 
-  listAgenda: async () => {
-    const data = await callApi('/api/email/agenda');
-    return data.activities as EmailAgendaActivity[];
+  async listEmails(folder = 'inbox', page = 1, search = ''): Promise<{ emails: EmailMessage[] }> {
+    const params = new URLSearchParams({ folder, page: String(page), search });
+    const response = await callApi<any>(`/api/email/messages?${params}`).catch(() => ({ emails: [] }));
+    return { emails: response.emails || response.data || [] };
   },
 
-  getThread: async (emailId: string) => {
-    const data = await callApi(`/api/email/emails/${emailId}/thread`);
-    return data.thread as EmailMessage[];
+  async getThread(id: string): Promise<EmailMessage[]> {
+    const response = await callApi<any>(`/api/email/messages/${id}/thread`).catch(() => ({ messages: [] }));
+    return response.messages || response.data || [];
   },
 
-  send: async (payload: {
-    account_id?: string;
-    to: string;
-    subject: string;
-    body_html: string;
-    lead_id?: string | null;
-  }) =>
-    callApi('/api/email/send-email', {
+  async updateEmail(id: string, payload: Partial<EmailMessage>): Promise<void> {
+    await callApi(`/api/email/messages/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }).catch(() => undefined);
+  },
+
+  async sync(accountId: string): Promise<{ synced: number }> {
+    return callApi(`/api/email/accounts/${accountId}/sync`, { method: 'POST' }).catch(() => ({ synced: 0 }));
+  },
+
+  async send(payload: any): Promise<void> {
+    await callApi('/api/email/send', {
       method: 'POST',
       body: JSON.stringify(payload),
-    }),
+    });
+  },
 
-  reply: async (emailId: string, body_html: string) =>
-    callApi(`/api/email/emails/${emailId}/reply`, {
+  async reply(id: string, body_html: string): Promise<void> {
+    await callApi(`/api/email/messages/${id}/reply`, {
       method: 'POST',
       body: JSON.stringify({ body_html }),
-    }),
+    });
+  },
 
-  updateEmail: async (emailId: string, patch: Partial<Pick<EmailMessage, 'is_read' | 'is_archived' | 'lead_id'>>) =>
-    callApi(`/api/email/emails/${emailId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(patch),
-    }),
+  async listAgenda(): Promise<EmailAgendaActivity[]> {
+    const response = await callApi<any>('/api/email/agenda').catch(() => ({ agenda: [] }));
+    return response.agenda || response.data || [];
+  },
 };

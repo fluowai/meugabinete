@@ -685,7 +685,7 @@ async function ensureOrganizationForUser(supabase, user, email) {
     'Usuario';
 
   let slugBase = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-  let orgName = `${userName} Imobiliaria`;
+  let orgName = `${userName} Gabinete`;
 
   // Search by owner_email first
   const { data: orgByEmail } = await supabase
@@ -711,7 +711,7 @@ async function ensureOrganizationForUser(supabase, user, email) {
       owner_name: userName,
       status: 'active',
       subscription_status: 'active',
-      niche: 'urbano',
+      niche: 'traditional',
       updated_at: new Date().toISOString(),
     })
     .select('id, name, owner_name, owner_email')

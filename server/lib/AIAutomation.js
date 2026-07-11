@@ -110,48 +110,47 @@ export class AIAutomationEngine {
 
       parts.push({
         text: `
-Analise a mensagem de um cliente imobiliario e responda apenas JSON valido.
+Analise a mensagem de um cidadao para um gabinete politico e responda apenas JSON valido.
 
 Mensagem:
 ${content || 'Midia sem texto.'}
 ${historyBlock} 
 
 Agente ativo:
-- Nome: ${agent?.name || 'Agente IMOBZY'}
-- Funcao: ${agent?.role || 'Atendimento imobiliario'}
+- Nome: ${agent?.name || 'Agente de Gabinete'}
+- Funcao: ${agent?.role || 'Triagem de demandas publicas'}
 - Personalidade: ${agent?.personality || 'consultiva, clara e objetiva'}
 - Estilo: ${agent?.response_style || 'consultivo'}
-- Capacidades: ${(agent?.capabilities || []).join(', ') || 'qualificar lead, criar kanban, etiquetar atendimento'}
+- Capacidades: ${(agent?.capabilities || []).join(', ') || 'classificar demandas, gerar protocolo, criar kanban, etiquetar atendimento'}
 - Ferramentas: ${(agent?.tools || []).join(', ') || 'whatsapp, kanban, follow-up'}
-- Instrucoes: ${agent?.instructions || 'Atenda com foco em qualificar e avancar o cliente para o proximo passo comercial.'}
+- Instrucoes: ${agent?.instructions || 'Atenda com foco em acolher o cidadao, registrar a demanda e encaminhar para o responsavel correto.'}
 ${agentFlowBlock}
 
 Etapas do kanban:
-- Novo: primeiro contato ou saudacao.
-- Qualificacao: precisa entender perfil, cidade, orcamento, urgencia, tipo de imovel.
-- Visita: quer visitar, marcou horario ou pediu localizacao para visita.
-- Simulacao: falou de proposta, financiamento, entrada, parcelas, negociacao ou valores.
-- Documentacao: enviou/pediu RG, CPF, comprovante, matricula, contrato, PDF ou documento.
-- Fechado: confirmou compra, aluguel ou aceite.
-- Perdido: desistiu, nao tem perfil ou contato improdutivo.
+- Nova: demanda recem recebida ou ainda sem triagem.
+- Triagem: precisa confirmar bairro, tema, endereco, evidencia ou urgencia.
+- Aguardando Informacoes: faltam dados do cidadao para encaminhar.
+- Encaminhada: enviada para assessor, secretaria, orgao publico ou responsavel.
+- Em Execucao: equipe ou orgao esta tratando a demanda.
+- Respondida: cidadao recebeu retorno formal.
+- Resolvida: demanda concluida.
+- Arquivada: duplicada, improcedente, spam ou encerrada sem acao.
 
 Filtro obrigatorio:
-- So marque shouldCreateLead=true quando a conversa for de cliente/prospect imobiliario ou lead ja qualificado.
-- Familia, amigos, assuntos pessoais, fornecedores, spam, grupos, conversas internas, links soltos e mensagens sem intencao imobiliaria devem ser shouldCreateLead=false.
+- So marque shouldCreateLead=true quando houver pedido, reclamacao, denuncia, agenda, solicitacao ou demanda de cidadao para o gabinete.
+- Familia, amigos, assuntos pessoais, fornecedores, spam, grupos, conversas internas e links soltos sem demanda publica devem ser shouldCreateLead=false.
 - Se for conversa pessoal, mantenha shouldCreateLead=false, classifique leadType e crie tags como pessoal/familia/amigo/fornecedor/interno.
-- Se for apenas saudacao sem contexto, use shouldCreateLead=true somente se houver indicio comercial, nome de imovel, CAR, fazenda, casa, aluguel, compra, venda, visita, proposta ou pergunta imobiliaria.
+- Se for apenas saudacao sem contexto, use shouldCreateLead=false e peca objetivamente a demanda.
 - leadName deve ser nome por extenso quando houver nome no contato ou na conversa; nao use apenas iniciais.
 
 Modo operacional:
-- Atue primeiro como SDR imobiliario: recepcione, qualifique e avance o lead antes de vender o imovel.
-- Descubra operacao, tipo de imovel, cidade/regiao, faixa de investimento, prazo, forma de pagamento e motivo da busca.
-- Nao despeje lista de imoveis no primeiro contato se faltarem dados essenciais; faca no maximo 2 perguntas objetivas por mensagem.
-- Recomende imoveis somente quando o lead pedir opcoes, citar um imovel especifico, demonstrar alta intencao ou ja tiver perfil minimo qualificado.
-- Se houver imoveis aderentes, convide para proximo passo: detalhe, visita, simulacao ou corretor humano.
-- Extraia dados para o CRM, nao apenas uma resposta de chat.
-- leadScore deve ser 0-100, combinando urgencia, orcamento, clareza de interesse, visita/proposta e qualidade do contato.
-- nextAction.type deve ser: qualify, recommend_property, schedule_visit, follow_up, collect_documents, notify_broker, close_deal, mark_lost.
-- Se houver pedido de visita ou horario claro, preencha visit.requested=true e visit.scheduledAt.
+- Atue como assessor de gabinete: acolha, registre, classifique e encaminhe.
+- Descubra tema, bairro, endereco/local, urgencia, evidencias, orgao responsavel e retorno esperado.
+- Faca no maximo 2 perguntas objetivas quando faltarem dados essenciais.
+- Extraia dados para o sistema de demandas, nao apenas uma resposta de chat.
+- leadScore deve ser 0-100, combinando urgencia social, risco, clareza da demanda, prazo e vulnerabilidade.
+- nextAction.type deve ser: qualify, forward_department, request_info, follow_up, collect_documents, notify_staff, close_case, archive_case.
+- Se houver prazo ou agenda, preencha nextAction.dueAt ou followUpAt em ISO.
 - Se houver promessa de retorno, preencha nextAction.dueAt ou followUpAt em ISO.
 - reply deve ser curta, humana e com postura de SDR. Quando faltarem dados, pergunte apenas os proximos dados mais importantes.
 - Siga o funil configurado do agente quando houver conflito entre uma resposta generica e uma etapa ativa do roteiro.
@@ -163,16 +162,16 @@ Formato:
   "confidence": 0.0,
   "transcricao": "se for audio, transcreva aqui; senao vazio",
   "intent": "resumo curto",
-  "suggestedStage": "Novo | Qualificacao | Visita | Simulacao | Documentacao | Fechado | Perdido",
-  "classification": "Alta Prioridade | Interessado | Curioso | Documentacao | Financeiro",
+  "suggestedStage": "Nova | Triagem | Aguardando Informacoes | Encaminhada | Em Execucao | Respondida | Resolvida | Arquivada",
+  "classification": "Saude | Infraestrutura | Educacao | Assistencia Social | Seguranca | Transporte | Agenda | Denuncia | Outros",
   "leadScore": 0,
   "temperature": "frio | morno | quente",
   "tags": ["ate 3 etiquetas curtas"],
   "leadName": "nome identificado ou vazio",
   "budget": 0,
   "interestProfile": {
-    "operation": "compra | venda | aluguel | arrendamento | captacao | indefinido",
-    "propertyType": "casa | apartamento | terreno | fazenda | sitio | chacara | comercial | indefinido",
+    "operation": "solicitacao | reclamacao | denuncia | agenda | informacao | indefinido",
+    "propertyType": "saude | infraestrutura | educacao | assistencia_social | seguranca | transporte | outros | indefinido",
     "city": "",
     "region": "",
     "payment": "vista | financiamento | parcelado | indefinido",
@@ -613,7 +612,7 @@ Formato:
             parts: [
               {
                 text: `
-Analise esta conversa historica de WhatsApp de uma imobiliaria e responda apenas JSON valido.
+Analise esta conversa historica de WhatsApp de um gabinete politico e responda apenas JSON valido.
 
 Chat: ${chat?.name || chat?.chat_jid || 'sem nome'}
 
@@ -621,33 +620,33 @@ Conversa:
 ${transcript || 'Sem texto renderizavel.'}
 
 Objetivo:
-- Identificar ou atualizar o lead no CRM.
-- Resumir necessidades, imovel desejado, cidade/regiao, orcamento, urgencia e proximas acoes.
+- Identificar ou atualizar a demanda do cidadao no sistema de gabinete.
+- Resumir tema, bairro, local, urgencia, evidencias, orgao responsavel e proximas acoes.
 - Escolher a etapa correta do funil.
-- Filtrar conversas que nao sao clientes/prospects imobiliarios.
-- Familia, amigos, fornecedores, assuntos pessoais, spam, grupos e conversas internas nao devem criar lead comercial.
+- Filtrar conversas que nao sejam demandas publicas ou atendimento de gabinete.
+- Familia, amigos, fornecedores, assuntos pessoais, spam, grupos e conversas internas nao devem criar demanda publica.
 - Se for conversa pessoal, mantenha shouldCreateLead=false, classifique leadType e crie tags como pessoal/familia/amigo/fornecedor/interno.
 - leadName deve ser nome por extenso quando houver nome no contato ou na conversa; nao use apenas iniciais.
 
-Etapas do funil:
-Novo, Qualificacao, Visita, Simulacao, Documentacao, Fechado, Perdido.
+Etapas do fluxo:
+Nova, Triagem, Aguardando Informacoes, Encaminhada, Em Execucao, Respondida, Resolvida, Arquivada.
 
 Formato:
 {
   "shouldCreateLead": true,
-  "leadType": "cliente | familia | amigo | fornecedor | interno | spam | outro",
+  "leadType": "cidadao | familia | amigo | fornecedor | interno | spam | outro",
   "confidence": 0.0,
-  "intent": "resumo comercial curto da conversa",
-  "suggestedStage": "Novo | Qualificacao | Visita | Simulacao | Documentacao | Fechado | Perdido",
-  "classification": "Alta Prioridade | Interessado | Curioso | Documentacao | Financeiro",
+  "intent": "resumo curto da demanda publica",
+  "suggestedStage": "Nova | Triagem | Aguardando Informacoes | Encaminhada | Em Execucao | Respondida | Resolvida | Arquivada",
+  "classification": "Saude | Infraestrutura | Educacao | Assistencia Social | Seguranca | Transporte | Outros",
   "leadScore": 0,
   "temperature": "frio | morno | quente",
   "tags": ["ate 6 etiquetas curtas"],
   "leadName": "nome identificado ou vazio",
   "budget": 0,
   "interestProfile": {
-    "operation": "compra | venda | aluguel | arrendamento | captacao | indefinido",
-    "propertyType": "casa | apartamento | terreno | fazenda | sitio | chacara | comercial | indefinido",
+    "operation": "pedido | reclamacao | denuncia | agenda | informacao | indefinido",
+    "propertyType": "saude | infraestrutura | educacao | assistencia_social | seguranca | transporte | outros | indefinido",
     "city": "",
     "region": "",
     "payment": "vista | financiamento | parcelado | indefinido",
@@ -655,7 +654,7 @@ Formato:
     "missingFields": ["campos que faltam para qualificar"]
   },
   "nextAction": {
-    "type": "qualify | recommend_property | schedule_visit | follow_up | collect_documents | notify_broker | close_deal | mark_lost",
+    "type": "triage | request_info | forward_department | follow_up | collect_documents | notify_assessor | resolve | archive",
     "title": "acao curta para o CRM",
     "dueAt": "data ISO se existir prazo",
     "reason": "por que esta acao e a proxima melhor"
@@ -669,7 +668,7 @@ Formato:
   "handoffRequired": false,
   "handoffReason": "",
   "followUpAt": "data ISO se houver compromisso claro; senao vazio",
-  "reply": "proxima resposta sugerida ao corretor"
+  "reply": "proxima resposta sugerida ao assessor"
 }`,
               },
             ],
@@ -759,13 +758,13 @@ Formato:
       return { required: true, reason: 'Documento sensivel recebido ou solicitado' };
     }
     if (rules.price_negotiation !== false && negotiation) {
-      return { required: true, reason: 'Negociacao comercial exige corretor' };
+      return { required: true, reason: 'Tema sensivel exige avaliacao humana' };
     }
     if (rules.visit_requested === true && visit.requested) {
       return { required: true, reason: 'Lead pediu visita' };
     }
     if (rules.high_intent === true && score >= 90 && nextAction?.type === 'notify_broker') {
-      return { required: true, reason: 'Lead com alta intencao e pedido de corretor' };
+      return { required: true, reason: 'Demanda urgente exige assessor' };
     }
     if (aiResult?.handoffRequired && rules.low_confidence !== false) {
       return { required: true, reason: 'Modelo sinalizou necessidade de transbordo' };
@@ -780,7 +779,7 @@ Formato:
       preferences: this._buildLeadPreferences(actionPlan, existingLead?.preferences),
       aptitude_interest: this._buildAptitudeInterest(actionPlan),
       ai_profile: {
-        version: 'imobzy-agent-orchestrator-v1',
+        version: 'pios-agent-orchestrator-v1',
         temperature: actionPlan.temperature,
         stage,
         tags,
@@ -869,7 +868,7 @@ Formato:
           type: 'follow_up',
           title: 'Conversa pessoal classificada',
           dueAt: '',
-          reason: 'Contato separado do funil comercial para nao criar lead imobiliario indevido.',
+          reason: 'Contato separado do fluxo de demandas para nao criar protocolo indevido.',
         },
         followUpAt: '',
         visit: { requested: false, scheduledAt: '', propertyHint: '', notes: '' },
@@ -1133,7 +1132,7 @@ Use essas etapas como roteiro operacional. Identifique a etapa mais adequada pel
       return false;
     }
 
-    if (type === 'cliente') return true;
+    if (type === 'cliente' || type === 'cidadao' || type === 'cidadão') return true;
     if (aiResult.shouldCreateLead === true) {
       return this._hasRealEstateSignal(text) || (Number.isFinite(confidence) && confidence >= 0.65);
     }
@@ -1148,13 +1147,21 @@ Use essas etapas como roteiro operacional. Identifique a etapa mais adequada pel
     return false;
   }
 
-  _normalizeLeadScore(aiResult = {}, text = '', stage = 'Novo') {
+  _normalizeLeadScore(aiResult = {}, text = '', stage = 'Nova') {
     const explicit = this._clampNumber(aiResult?.leadScore ?? aiResult?.score, 0, 100, null);
     if (explicit !== null) return explicit;
 
-    let score = this._hasRealEstateSignal(text) ? 35 : 10;
+    let score = this._hasDemandSignal(text) ? 35 : 10;
     const normalized = String(text).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     const stageBoosts = {
+      Nova: 5,
+      Triagem: 18,
+      'Aguardando Informações': 20,
+      Encaminhada: 30,
+      'Em Execução': 38,
+      Respondida: 70,
+      Resolvida: 100,
+      Arquivada: 0,
       Novo: 5,
       'QualificaÃ§Ã£o': 18,
       Visita: 32,
@@ -1165,10 +1172,10 @@ Use essas etapas como roteiro operacional. Identifique a etapa mais adequada pel
     };
 
     score += stageBoosts[stage] || 0;
-    if (aiResult?.budget || /\b(r\$|orcamento|entrada|financiamento|parcela|a vista|avista)\b/.test(normalized)) score += 12;
+    if (/\b(protocolo|documento|foto|comprovante|endereco|bairro|rua)\b/.test(normalized)) score += 10;
     if (/\b(hoje|amanha|essa semana|urgente|agora|imediato|quanto antes)\b/.test(normalized)) score += 12;
-    if (/\b(visita|visitar|conhecer|ver o imovel|agendar|horario)\b/.test(normalized)) score += 18;
-    if (/\b(proposta|fechar|contrato|sinal|documentacao|cpf|rg|matricula)\b/.test(normalized)) score += 18;
+    if (/\b(agendar|horario|reuniao|atendimento|gabinete|secretaria)\b/.test(normalized)) score += 12;
+    if (/\b(denuncia|risco|sem remedio|sem medicamento|acidente|violencia|ameaca|crianca|idoso|deficiencia)\b/.test(normalized)) score += 18;
 
     return this._clampNumber(score, 0, 100, 0);
   }
@@ -1176,12 +1183,18 @@ Use essas etapas como roteiro operacional. Identifique a etapa mais adequada pel
   _normalizeClassification(classification, score, stage) {
     const clean = String(classification || '').trim();
     if (clean) return clean;
+    if (stage === 'Arquivada') return 'Arquivada';
+    if (stage === 'Resolvida') return 'Resolvida';
+    if (stage === 'Respondida') return 'Respondida';
+    if (stage === 'Em Execução') return 'Em Execucao';
+    if (stage === 'Encaminhada') return 'Encaminhada';
+    if (stage === 'Aguardando Informações') return 'Aguardando informacoes';
     if (stage === 'Perdido') return 'Desqualificado';
     if (stage === 'DocumentaÃ§Ã£o') return 'Documentacao';
     if (stage === 'SimulaÃ§Ã£o') return 'Financeiro';
     if (score >= 75) return 'Alta Prioridade';
-    if (score >= 45) return 'Interessado';
-    return 'Curioso';
+    if (score >= 45) return 'Triagem';
+    return 'Demanda recebida';
   }
 
   _normalizeNextAction(nextAction = {}, context = {}) {
@@ -1196,6 +1209,13 @@ Use essas etapas como roteiro operacional. Identifique a etapa mais adequada pel
   }
 
   _inferNextActionType({ stage, visit, score }) {
+    if (stage === 'Arquivada') return 'archive';
+    if (stage === 'Resolvida') return 'resolve';
+    if (stage === 'Respondida') return 'follow_up';
+    if (stage === 'Aguardando Informações') return 'request_info';
+    if (stage === 'Encaminhada') return 'forward_department';
+    if (stage === 'Em Execução' || score >= 80) return 'notify_assessor';
+    if (stage === 'Triagem' || stage === 'Nova') return 'triage';
     if (stage === 'Perdido') return 'mark_lost';
     if (stage === 'Fechado') return 'close_deal';
     if (stage === 'DocumentaÃ§Ã£o') return 'collect_documents';
@@ -1207,22 +1227,32 @@ Use essas etapas como roteiro operacional. Identifique a etapa mais adequada pel
 
   _defaultActionTitle(type) {
     return {
-      qualify: 'Qualificar perfil do lead',
-      recommend_property: 'Recomendar imoveis aderentes',
-      schedule_visit: 'Agendar visita',
-      follow_up: 'Criar retorno comercial',
+      triage: 'Fazer triagem da demanda',
+      request_info: 'Solicitar informacoes complementares',
+      forward_department: 'Encaminhar ao orgao responsavel',
+      notify_assessor: 'Acionar assessor responsavel',
+      resolve: 'Registrar resposta ao cidadao',
+      archive: 'Arquivar demanda',
+      qualify: 'Fazer triagem da demanda',
+      recommend_property: 'Sugerir encaminhamento adequado',
+      schedule_visit: 'Agendar atendimento',
+      follow_up: 'Acompanhar retorno',
       collect_documents: 'Coletar documentos',
-      notify_broker: 'Acionar corretor responsavel',
-      close_deal: 'Conduzir fechamento',
-      mark_lost: 'Marcar oportunidade como perdida',
-    }[type] || 'Proxima acao comercial';
+      notify_broker: 'Acionar assessor responsavel',
+      close_deal: 'Registrar resolucao',
+      mark_lost: 'Arquivar demanda',
+    }[type] || 'Proxima acao do gabinete';
   }
 
   _defaultActionReason(type, { score }) {
-    if (type === 'schedule_visit') return 'Lead demonstrou interesse em visita ou etapa de visita foi detectada.';
-    if (type === 'notify_broker') return `Lead com score ${score}/100 precisa de acao humana rapida.`;
-    if (type === 'qualify') return 'Ainda faltam dados para recomendar imoveis com precisao.';
-    return 'Manter cadencia comercial com contexto da conversa.';
+    if (type === 'request_info') return 'Ainda faltam dados para encaminhar a demanda com precisao.';
+    if (type === 'forward_department') return 'A demanda ja tem contexto suficiente para encaminhamento.';
+    if (type === 'notify_assessor') return `Demanda com score ${score}/100 precisa de acao humana rapida.`;
+    if (type === 'triage') return 'Demanda precisa ser classificada antes do encaminhamento.';
+    if (type === 'schedule_visit') return 'Cidadao solicitou atendimento ou retorno agendado.';
+    if (type === 'notify_broker') return `Demanda com score ${score}/100 precisa de acao humana rapida.`;
+    if (type === 'qualify') return 'Ainda faltam dados para encaminhar a demanda com precisao.';
+    return 'Manter acompanhamento com contexto da conversa.';
   }
 
   _normalizeVisit(visit = {}, fallbackDate, stage) {
@@ -1256,10 +1286,13 @@ Use essas etapas como roteiro operacional. Identifique a etapa mais adequada pel
   }
 
   _inferIntent(text = '', stage) {
+    if (stage === 'Encaminhada') return 'Demanda encaminhada ao responsavel.';
+    if (stage === 'Aguardando Informações') return 'Demanda aguardando informacoes complementares.';
+    if (stage === 'Em Execução') return 'Demanda em execucao pelo gabinete ou orgao responsavel.';
     if (stage === 'Visita') return 'Lead demonstrou interesse em visita.';
     if (stage === 'SimulaÃ§Ã£o') return 'Lead demonstrou interesse financeiro ou proposta.';
     if (stage === 'DocumentaÃ§Ã£o') return 'Lead trouxe ou solicitou documentos.';
-    return this._hasRealEstateSignal(text) ? 'Lead com interesse imobiliario identificado.' : 'Mensagem sem intencao imobiliaria clara.';
+    return this._hasDemandSignal(text) ? 'Demanda publica identificada.' : 'Mensagem sem demanda publica clara.';
   }
 
   _normalizeMoney(value) {
@@ -1289,11 +1322,15 @@ Use essas etapas como roteiro operacional. Identifique a etapa mais adequada pel
   }
 
   _hasRealEstateSignal(text = '') {
+    return this._hasDemandSignal(text);
+  }
+
+  _hasDemandSignal(text = '') {
     const normalized = String(text)
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase();
-    return /\b(imovel|casa|apartamento|terreno|fazenda|sitio|chacara|area|hectare|ha\b|alqueire|comprar|vender|alugar|locacao|arrendar|visita|proposta|financiamento|entrada|parcela|car\b|matricula|ccir|incra|geo|itr|contrato)\b/.test(normalized);
+    return /\b(demanda|pedido|solicito|preciso|ajuda|reclamacao|denuncia|protocolo|bairro|rua|endereco|saude|remedio|medicamento|consulta|exame|hospital|upa|educacao|escola|creche|transporte|onibus|buraco|asfalto|iluminacao|luz|agua|esgoto|lixo|limpeza|seguranca|violencia|assistencia|beneficio|cesta|moradia|idoso|crianca|deficiencia|urgente)\b/.test(normalized);
   }
 
   _resolveLeadName(...values) {
@@ -1306,7 +1343,7 @@ Use essas etapas como roteiro operacional. Identifique a etapa mais adequada pel
       if (!clean || this._isPlaceholderName(clean)) continue;
       return clean;
     }
-    return phoneFallback || 'Lead WhatsApp';
+    return phoneFallback || 'Cidadao WhatsApp';
   }
 
   _isPlaceholderName(value = '') {
@@ -1319,6 +1356,21 @@ Use essas etapas como roteiro operacional. Identifique a etapa mais adequada pel
 
   _normalizeStage(stage, messageType) {
     const raw = String(stage || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (raw.includes('arquiv')) return 'Arquivada';
+    if (raw.includes('resol')) return 'Resolvida';
+    if (raw.includes('respond')) return 'Respondida';
+    if (raw.includes('exec')) return 'Em Execução';
+    if (raw.includes('encamin')) return 'Encaminhada';
+    if (raw.includes('aguard')) return 'Aguardando Informações';
+    if (raw.includes('triag') || raw.includes('atendimento')) return 'Triagem';
+    if (raw.includes('nova')) return 'Nova';
+    if (messageType === 'document' || raw.includes('document')) return 'Aguardando Informações';
+    if (raw.includes('simul') || raw.includes('proposta') || raw.includes('finance')) return 'Encaminhada';
+    if (raw.includes('visita') || raw.includes('agenda')) return 'Triagem';
+    if (raw.includes('fechado')) return 'Resolvida';
+    if (raw.includes('perdido')) return 'Arquivada';
+    if (raw.includes('qual')) return 'Triagem';
+    return 'Nova';
     if (messageType === 'document') return 'Documentação';
     if (raw.includes('document')) return 'Documentação';
     if (raw.includes('simul') || raw.includes('proposta') || raw.includes('finance')) return 'Simulação';
@@ -1330,6 +1382,11 @@ Use essas etapas como roteiro operacional. Identifique a etapa mais adequada pel
   }
 
   _shouldAdvance(current, next) {
+    const gabineteStages = ['Nova', 'Triagem', 'Aguardando Informações', 'Encaminhada', 'Em Execução', 'Respondida', 'Resolvida', 'Arquivada'];
+    if (gabineteStages.includes(next)) {
+      if (next === 'Arquivada') return true;
+      return gabineteStages.indexOf(next) > gabineteStages.indexOf(current);
+    }
     const stages = ['Novo', 'Qualificação', 'Visita', 'Simulação', 'Documentação', 'Fechado', 'Perdido'];
     if (next === 'Perdido') return true;
     return stages.indexOf(next) > stages.indexOf(current);
@@ -1464,7 +1521,7 @@ Use essas etapas como roteiro operacional. Identifique a etapa mais adequada pel
     const questions = [];
 
     if ((!profile.propertyType || profile.propertyType === 'indefinido') || missing.includes('propertyType')) {
-      questions.push('qual tipo de imovel voce procura');
+      questions.push('qual e o tema principal da demanda');
     }
     if ((!profile.city && !profile.region) || missing.includes('city') || missing.includes('region')) {
       questions.push('em qual cidade ou regiao');
@@ -1489,7 +1546,7 @@ Use essas etapas como roteiro operacional. Identifique a etapa mais adequada pel
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase();
-    const requestedOptions = /\b(opcoes|oportunidades|imoveis|tem algo|me envia|manda|quais|catalogo|lista|disponiveis|visita|visitar|conhecer)\b/.test(normalizedText);
+    const requestedOptions = /\b(protocolo|encaminhar|resolver|retorno|resposta|prazo|secretaria|gabinete|responsavel)\b/.test(normalizedText);
     const profile = actionPlan.interestProfile || {};
     const missing = Array.isArray(profile.missingFields) ? profile.missingFields.filter(Boolean) : [];
     const hasMinimumProfile = Boolean(
@@ -1553,16 +1610,16 @@ Use essas etapas como roteiro operacional. Identifique a etapa mais adequada pel
     if (!dueAtValue) return;
     const dueAt = new Date(dueAtValue);
     if (Number.isNaN(dueAt.getTime())) return;
-    const isVisit = aiResult?.visit?.requested || aiResult?.nextAction?.type === 'schedule_visit';
+    const isAppointment = aiResult?.visit?.requested || aiResult?.nextAction?.type === 'schedule_visit';
     const { error } = await supabase.from('lead_followups').insert({
       lead_id: leadId,
       organization_id: organizationId,
       due_at: dueAt.toISOString(),
-      title: isVisit ? 'Visita sugerida pela IA' : (aiResult?.nextAction?.title || 'Retorno sugerido pela IA'),
+      title: isAppointment ? 'Atendimento sugerido pela IA' : (aiResult?.nextAction?.title || 'Retorno sugerido pela IA'),
       notes: [
         aiResult.intent,
         aiResult?.nextAction?.reason,
-        aiResult?.visit?.propertyHint ? `Imovel: ${aiResult.visit.propertyHint}` : '',
+        aiResult?.visit?.propertyHint ? `Contexto: ${aiResult.visit.propertyHint}` : '',
         aiResult?.reply ? `Resposta sugerida: ${aiResult.reply}` : '',
       ].filter(Boolean).join('\n'),
       status: 'pending',

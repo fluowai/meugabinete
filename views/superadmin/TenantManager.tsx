@@ -123,7 +123,7 @@ const TenantManager: React.FC = () => {
         status: tenant.status,
         custom_domain: tenant.custom_domain || '',
         password: '',
-        niche: tenant.niche === 'rural' ? 'rural' : 'traditional',
+        niche: 'traditional',
       });
     } else {
       setEditingId(null);
@@ -191,7 +191,7 @@ const TenantManager: React.FC = () => {
     } catch (error: any) {
       logger.error('Error saving:', error);
       alert(
-        `Erro ao salvar imobiliária: ${error.message || 'Erro desconhecido'}`
+        `Erro ao salvar gabinete: ${error.message || 'Erro desconhecido'}`
       );
     } finally {
       setFormLoading(false);
@@ -220,7 +220,7 @@ const TenantManager: React.FC = () => {
   const deleteTenant = async (id: string, name: string) => {
     if (
       !confirm(
-        `⚠️ Tem certeza que deseja EXCLUIR a imobiliária "${name}"?\n\nEssa ação é IRREVERSÍVEL e vai remover todos os dados associados.`
+        `Tem certeza que deseja EXCLUIR o gabinete "${name}"?\n\nEssa acao e IRREVERSIVEL e vai remover todos os dados associados.`
       )
     )
       return;
@@ -255,7 +255,7 @@ const TenantManager: React.FC = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">
-            Gerenciar Imobiliárias
+            Gerenciar Gabinetes
           </h1>
           <p className="text-gray-500">Crie e edite empresas manualmente.</p>
         </div>
@@ -277,7 +277,7 @@ const TenantManager: React.FC = () => {
             onClick={() => handleOpenModal()}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
           >
-            <Plus size={20} /> Nova Imobiliária
+            <Plus size={20} /> Novo Gabinete
           </button>
         </div>
       </div>
@@ -367,11 +367,11 @@ const TenantManager: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
-                      tenant.niche === 'rural' ? 'bg-green-100 text-green-700' :
+                      tenant.niche === 'rural' ? 'bg-blue-100 text-blue-700' :
                       tenant.niche === 'traditional' ? 'bg-blue-100 text-blue-700' :
                       'bg-purple-100 text-purple-700'
                     }`}>
-                      {tenant.niche === 'rural' ? 'rural' : 'traditional'}
+                      gabinete
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -437,7 +437,7 @@ const TenantManager: React.FC = () => {
                     <button
                       onClick={() => deleteTenant(tenant.id, tenant.name)}
                       className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
-                      title="Excluir Imobiliária"
+                      title="Excluir Gabinete"
                     >
                       <Trash2 size={18} />
                     </button>
@@ -455,7 +455,7 @@ const TenantManager: React.FC = () => {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="flex justify-between items-center p-4 border-b border-gray-100">
               <h3 className="text-lg font-bold text-gray-800">
-                {editingId ? 'Editar Imobiliária' : 'Nova Imobiliária'}
+                {editingId ? 'Editar Gabinete' : 'Novo Gabinete'}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -492,7 +492,7 @@ const TenantManager: React.FC = () => {
                   <input
                     type="text"
                     className="w-full px-3 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 outline-none lowercase"
-                    placeholder="ex: fazendas-brasil"
+                    placeholder="ex: gabinete-popular"
                     value={formData.slug}
                     onChange={(e) =>
                       setFormData({
@@ -515,7 +515,7 @@ const TenantManager: React.FC = () => {
                 <input
                   type="text"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="ex: imobiliaria.com.br"
+                  placeholder="ex: gabinete.seudominio.com.br"
                   value={formData.custom_domain}
                   onChange={(e) =>
                     setFormData({
@@ -558,7 +558,7 @@ const TenantManager: React.FC = () => {
                     type="email"
                     required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                    placeholder="dono@imobiliaria.com"
+                    placeholder="gestor@gabinete.gov.br"
                     value={formData.owner_email}
                     onChange={(e) =>
                       setFormData({ ...formData, owner_email: e.target.value })
@@ -623,7 +623,7 @@ const TenantManager: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nicho de Atuação
+                    Tipo de operacao
                   </label>
                   <select
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
@@ -632,9 +632,8 @@ const TenantManager: React.FC = () => {
                       setFormData({ ...formData, niche: e.target.value })
                     }
                   >
-                    <option value="">Selecione o nicho correto</option>
-                    <option value="rural">Rural</option>
-                    <option value="traditional">Urbano</option>
+                    <option value="">Selecione o tipo</option>
+                    <option value="traditional">Gabinete</option>
                   </select>
                 </div>
               </div>

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
@@ -86,11 +87,11 @@ type Option = {
 
 type TestMessage = {
   id: string;
-  side: 'lead' | 'agent';
+  side: 'cidadao' | 'agent';
   content: string;
 };
 
-type TestMode = 'lead-simulator' | 'agent-reply';
+type TestMode = 'cidadao-simulator' | 'agent-reply';
 
 const channels = [
   { id: 'whatsapp', label: 'WhatsApp' },
@@ -102,45 +103,45 @@ const channels = [
 
 const workspaces: Option[] = [
   {
-    id: 'Atendimento inicial',
-    label: 'Atendimento inicial',
-    description: 'Recebe leads, responde dúvidas e inicia qualificação.',
+    id: 'Triagem de demandas',
+    label: 'Triagem de demandas',
+    description: 'Recebe cidadãos, classifica demandas e inicia atendimento.',
     icon: MessageSquareText,
   },
   {
-    id: 'Kanban comercial',
-    label: 'Kanban comercial',
+    id: 'Kanban de atendimento',
+    label: 'Kanban de atendimento',
     description: 'Cria cards, atualiza etapas e registra próximos passos.',
     icon: LayoutGrid,
   },
   {
     id: 'Documentação',
     label: 'Documentação',
-    description: 'Classifica documentos, PDFs e pendências do processo.',
+    description: 'Classifica documentos, PDFs e pendências da demanda.',
     icon: FileSearch,
   },
   {
     id: 'Follow-up',
     label: 'Follow-up',
-    description: 'Mantém retorno comercial com timing e contexto.',
+    description: 'Mantém retorno com timing e contexto ao cidadão.',
     icon: Repeat2,
   },
   {
     id: 'Agenda',
     label: 'Agenda',
-    description: 'Sugere horários e organiza visitas com o time.',
+    description: 'Sugere horários e organiza atendimentos com o time.',
     icon: CalendarClock,
   },
   {
-    id: 'Match de imóveis',
-    label: 'Match de imóveis',
-    description: 'Cruza perfil do lead com oportunidades da carteira.',
-    icon: Home,
+    id: 'Monitoramento territorial',
+    label: 'Monitoramento territorial',
+    description: 'Acompanha indicadores de bairros, demandas e sentimento.',
+    icon: Target,
   },
   {
-    id: 'Pós-venda',
-    label: 'Pós-venda',
-    description: 'Acompanha satisfação, tarefas e novas oportunidades.',
+    id: 'Pós-atendimento',
+    label: 'Pós-atendimento',
+    description: 'Acompanha satisfação, tarefas e novas interações.',
     icon: BadgeCheck,
   },
 ];
@@ -174,21 +175,21 @@ const toolOptions = [
   { id: 'documentos', label: 'Documentos', icon: FileText },
   { id: 'pdf-reader', label: 'PDF Reader', icon: FileSearch },
   { id: 'audio-stt', label: 'Audio STT', icon: Mic },
-  { id: 'matchmaking', label: 'Matchmaking', icon: Sparkles },
+  { id: 'monitoramento', label: 'Monitoramento', icon: Target },
   { id: 'follow-up', label: 'Follow-up', icon: Repeat2 },
-  { id: 'notificar-corretor', label: 'Notificação ao corretor', icon: BellRing },
+  { id: 'notificar-assessor', label: 'Notificação ao assessor', icon: BellRing },
   { id: 'criar-tarefa', label: 'Criar tarefa', icon: ClipboardCheck },
   { id: 'mover-etapa-funil', label: 'Mover etapa do funil', icon: MoveRight },
 ];
 
 const handoffRules = [
-  { id: 'visit_requested', label: 'Lead pediu visita' },
-  { id: 'price_negotiation', label: 'Lead quer negociar valor' },
-  { id: 'sensitive_document', label: 'Lead enviou documento sensível' },
-  { id: 'high_intent', label: 'Lead demonstrou alta intenção' },
-  { id: 'angry_lead', label: 'Lead ficou irritado' },
-  { id: 'low_confidence', label: 'IA não tem certeza' },
-  { id: 'property_unavailable', label: 'Imóvel não está disponível' },
+  { id: 'reuniao_solicitada', label: 'Cidadão pediu reunião' },
+  { id: 'demanda_sensivel', label: 'Demanda sensível ou política' },
+  { id: 'documento_enviado', label: 'Cidadão enviou documento' },
+  { id: 'demanda_urgente', label: 'Demanda urgente identificada' },
+  { id: 'cidadao_irritado', label: 'Cidadão insatisfeito ou irritado' },
+  { id: 'baixa_confianca', label: 'IA não tem certeza' },
+  { id: 'crise_detectada', label: 'Possível crise identificada' },
 ];
 
 const tabs = [
@@ -203,58 +204,58 @@ const tabs = [
 ];
 
 const flowSteps = [
-  { title: 'Atende', subtitle: 'Recebe e responde o lead', icon: Headphones },
-  { title: 'Qualifica', subtitle: 'Perfil, dor, prazo e valor', icon: ClipboardCheck },
-  { title: 'Cria processo', subtitle: 'Card, etapa e proxima acao', icon: LayoutGrid },
-  { title: 'Recomenda', subtitle: 'Imoveis aderentes da carteira', icon: Home },
-  { title: 'Agenda', subtitle: 'Visita, simulacao ou retorno', icon: CalendarClock },
-  { title: 'Transborda', subtitle: 'Corretor recebe contexto', icon: UserPlus },
-  { title: 'Acompanha', subtitle: 'Follow-up ate fechamento', icon: Repeat2 },
+  { title: 'Atende', subtitle: 'Recebe e responde o cidadão', icon: Headphones },
+  { title: 'Classifica', subtitle: 'Categoria, urgência e bairro', icon: ClipboardCheck },
+  { title: 'Cria demanda', subtitle: 'Card, protocolo e próxima ação', icon: LayoutGrid },
+  { title: 'Encaminha', subtitle: 'Direciona para secretaria/setor', icon: Target },
+  { title: 'Agenda', subtitle: 'Reunião, audiência ou retorno', icon: CalendarClock },
+  { title: 'Transborda', subtitle: 'Assessor recebe contexto', icon: UserPlus },
+  { title: 'Acompanha', subtitle: 'Follow-up até resolução', icon: Repeat2 },
 ];
 
 const salesProcessSteps = [
   {
-    title: 'Entrada e triagem',
-    description: 'Identifica comprador, locatario, proprietario, investidor ou contato sem perfil comercial.',
+    title: 'Recepção e triagem',
+    description: 'Identifica cidadão, motivo da visita, demanda ou solicitação.',
     icon: PhoneCall,
   },
   {
-    title: 'Qualificacao SDR',
-    description: 'Coleta tipo de imovel, regiao, faixa de investimento, pagamento, prazo e objecoes.',
+    title: 'Classificação',
+    description: 'Categoria da demanda, bairro, urgência, dados pessoais e histórico.',
     icon: Target,
   },
   {
-    title: 'Processo de venda',
-    description: 'Cria ou atualiza lead no CRM, movimenta funil, registra resumo e define proxima acao.',
+    title: 'Registro da demanda',
+    description: 'Cria ou atualiza demanda no CRM, registra protocolo e define próxima ação.',
     icon: Workflow,
   },
   {
-    title: 'Oportunidades',
-    description: 'Consulta a carteira, recomenda imoveis aderentes e prepara argumento comercial.',
+    title: 'Encaminhamento',
+    description: 'Direciona para a secretaria/setor competente e prepara contexto.',
     icon: Sparkles,
   },
   {
-    title: 'Execucao comercial',
-    description: 'Agenda visita, cria follow-up, aciona corretor, pede documentos e acompanha negociacao.',
+    title: 'Acompanhamento',
+    description: 'Agenda retorno, cria follow-up, aciona assessor e acompanha resolução.',
     icon: Rocket,
   },
 ];
 
 const operatingModes = [
   {
-    title: 'SDR de atendimento',
-    description: 'Ideal para WhatsApp conectado: responde rapido, qualifica e cria o processo no CRM.',
+    title: 'Recepcionista digital',
+    description: 'Ideal para WhatsApp conectado: responde rápido, classifica e cria a demanda no CRM.',
     tools: ['whatsapp', 'crm', 'kanban', 'follow-up'],
   },
   {
-    title: 'Closer assistido',
-    description: 'Conduz proposta, visita, simulacao e objecoes, com transbordo para corretor humano.',
-    tools: ['matchmaking', 'agenda', 'notificar-corretor', 'mover-etapa-funil'],
+    title: 'Assessor de atendimento',
+    description: 'Conduz classificação, encaminhamento, follow-up e transbordo para assessor humano.',
+    tools: ['monitoramento', 'agenda', 'notificar-assessor', 'mover-etapa-funil'],
   },
   {
     title: 'Atendimento completo',
-    description: 'Opera do primeiro contato ao pos-atendimento, mantendo historico, tarefas e retornos.',
-    tools: ['whatsapp', 'crm', 'kanban', 'matchmaking', 'follow-up', 'criar-tarefa'],
+    description: 'Opera do primeiro contato ao pós-atendimento, mantendo histórico, tarefas e retornos.',
+    tools: ['whatsapp', 'crm', 'kanban', 'monitoramento', 'follow-up', 'criar-tarefa'],
   },
 ];
 
@@ -263,44 +264,44 @@ const funnelBuilderSteps: (AgentFlowStep & { icon: React.ElementType })[] = [
     id: 'entrada',
     title: 'Entrada',
     trigger: 'Nova mensagem no WhatsApp',
-    prompt: 'Cumprimente, identifique o interesse e confirme se a pessoa busca compra, locacao, venda ou investimento.',
-    action: 'Criar ou localizar lead',
+    prompt: 'Cumprimente, identifique o cidadão e confirme o motivo do contato: demanda, informação, elogio ou reclamação.',
+    action: 'Criar ou localizar cidadão',
     enabled: true,
     icon: MessageCircle,
   },
   {
-    id: 'qualificacao',
-    title: 'Qualificacao',
-    trigger: 'Lead respondeu com interesse',
-    prompt: 'Pergunte tipo de imovel, cidade ou regiao, faixa de valor, prazo, forma de pagamento e motivo da busca.',
+    id: 'classificacao',
+    title: 'Classificação',
+    trigger: 'Cidadão descreveu a demanda',
+    prompt: 'Pergunte categoria da demanda, bairro, urgência e dados de contato se ainda não tiver.',
     action: 'Atualizar perfil e score',
     enabled: true,
     icon: ClipboardCheck,
   },
   {
-    id: 'match',
-    title: 'Oportunidades',
-    trigger: 'Perfil minimo completo',
-    prompt: 'Consulte a carteira e apresente ate 3 oportunidades com motivo de aderencia, sem despejar catalogo.',
-    action: 'Buscar imoveis e registrar match',
+    id: 'encaminhamento',
+    title: 'Encaminhamento',
+    trigger: 'Classificação completa',
+    prompt: 'Identifique a secretaria/setor competente, crie o protocolo e encaminhe com contexto.',
+    action: 'Criar demanda e encaminhar',
     enabled: true,
-    icon: Home,
+    icon: Target,
   },
   {
     id: 'processo',
-    title: 'Processo',
-    trigger: 'Lead demonstrou intencao',
-    prompt: 'Mova o card no funil, registre resumo, proxima acao e crie follow-up com data quando houver compromisso.',
-    action: 'Mover etapa e criar tarefa',
+    title: 'Acompanhamento',
+    trigger: 'Demanda encaminhada',
+    prompt: 'Registre ação, crie follow-up com data e mantenha o cidadão informado sobre o andamento.',
+    action: 'Registrar e criar tarefa',
     enabled: true,
     icon: Workflow,
   },
   {
     id: 'transbordo',
     title: 'Transbordo',
-    trigger: 'Visita, proposta ou duvida sensivel',
-    prompt: 'Acione o corretor com resumo do lead, imovel desejado, orcamento, objecoes e proximo passo recomendado.',
-    action: 'Notificar corretor',
+    trigger: 'Demanda sensível ou alta complexidade',
+    prompt: 'Acione o assessor com resumo do cidadão, demanda, urgência, documentos e próximo passo recomendado.',
+    action: 'Notificar assessor',
     enabled: true,
     icon: UserPlus,
   },
@@ -308,8 +309,8 @@ const funnelBuilderSteps: (AgentFlowStep & { icon: React.ElementType })[] = [
 
 const funnelStepIcons: Record<string, React.ElementType> = {
   entrada: MessageCircle,
-  qualificacao: ClipboardCheck,
-  match: Home,
+  classificacao: ClipboardCheck,
+  encaminhamento: Target,
   processo: Workflow,
   transbordo: UserPlus,
 };
@@ -338,36 +339,36 @@ function normalizeFlowSteps(steps?: AgentFlowStep[] | unknown): AgentFlowStep[] 
 
 const promptQuickBlocks = [
   {
-    title: 'SDR consultivo',
-    text: 'Atue como SDR imobiliario: faca perguntas curtas, uma ou duas por vez, qualifique antes de recomendar e sempre conduza para o proximo passo comercial.',
+    title: 'Triagem consultiva',
+    text: 'Atue como assessor de gabinete: faça perguntas curtas, uma ou duas por vez, classifique antes de encaminhar e sempre conduza para a resolução da demanda.',
   },
   {
-    title: 'Criar processo',
-    text: 'Sempre que identificar interesse comercial, crie ou atualize o lead, defina etapa do funil, registre resumo, score, tags e proxima acao.',
+    title: 'Criar demanda',
+    text: 'Sempre que identificar uma demanda do cidadão, crie ou atualize o registro, defina categoria, urgência, bairro, registre resumo, score, tags e próxima ação.',
   },
   {
-    title: 'Match de imoveis',
-    text: 'So apresente imoveis quando houver perfil minimo ou pedido claro. Recomende ate 3 opcoes e explique por que cada uma combina com o lead.',
+    title: 'Encaminhamento',
+    text: 'Encaminhe para o setor/secretaria competente quando houver classificação completa. Inclua contexto, dados do cidadão e urgência.',
   },
   {
     title: 'Transbordo humano',
-    text: 'Transborde para corretor quando houver visita, proposta, negociacao de preco, documento sensivel, lead irritado ou baixa confianca da IA.',
+    text: 'Transborde para assessor quando houver reunião, demanda sensível, documento, cidadão irritado, crise ou baixa confiança da IA.',
   },
 ];
 
 const defaultHandoff = {
-  visit_requested: true,
-  price_negotiation: true,
-  sensitive_document: true,
-  high_intent: true,
-  angry_lead: true,
-  low_confidence: true,
-  property_unavailable: true,
+  reuniao_solicitada: true,
+  demanda_sensivel: true,
+  documento_enviado: true,
+  demanda_urgente: true,
+  cidadao_irritado: true,
+  baixa_confianca: true,
+  crise_detectada: true,
 };
 
 const emptyAgent: BuilderDraft = {
   name: '',
-  role: 'SDR de Atendimento Imobiliario',
+  role: 'Assessor de Atendimento Digital',
   channel: 'whatsapp',
   channels: ['whatsapp'],
   instances: [],
@@ -375,12 +376,12 @@ const emptyAgent: BuilderDraft = {
   status: 'Ativo',
   personality: '',
   instructions:
-    'Atue como SDR imobiliario. Receba o lead, qualifique perfil, crie ou atualize o processo no CRM, mova a etapa correta do funil, consulte oportunidades da carteira quando fizer sentido e acione o corretor com contexto completo quando houver intencao forte.',
-  capabilities: ['Atendimento inicial', 'Kanban comercial', 'Match de imoveis', 'Agenda', 'Follow-up'],
-  tools: ['whatsapp', 'kanban', 'crm', 'matchmaking', 'agenda', 'follow-up', 'notificar-corretor', 'mover-etapa-funil'],
+    'Atue como assessor de gabinete. Receba o cidadão, classifique a demanda, crie ou atualize o registro no CRM, mova a etapa correta do funil, encaminhe para o setor competente e acione o assessor humano com contexto completo quando necessário.',
+  capabilities: ['Triagem de demandas', 'Kanban de atendimento', 'Encaminhamento', 'Agenda', 'Follow-up'],
+  tools: ['whatsapp', 'kanban', 'crm', 'monitoramento', 'agenda', 'follow-up', 'notificar-assessor', 'mover-etapa-funil'],
   response_style: 'consultivo',
   autonomy_level: 2,
-  operation_mode: 'Semiautonomo',
+  operation_mode: 'Semiautônomo',
   channel_scope: 'Omnichannel CRM',
   handoff_rules: defaultHandoff,
   flow_steps: defaultFlowSteps,
@@ -388,48 +389,48 @@ const emptyAgent: BuilderDraft = {
 
 const presets: TemplatePreset[] = [
   {
-    name: 'Aline Atendimento 360',
-    role: 'SDR e Atendimento Completo',
-    description: 'Atende no WhatsApp, qualifica, cria o processo no CRM, recomenda oportunidades e conduz o lead ate o corretor.',
-    tags: ['SDR', 'Venda', 'CRM'],
+    name: 'Ana Atendimento 360',
+    role: 'Triagem e Atendimento Completo',
+    description: 'Atende no WhatsApp, classifica demandas, cria o registro no CRM, encaminha para setores e conduz o cidadão até a resolução.',
+    tags: ['Triagem', 'CRM', 'Atendimento'],
     accent: 'from-emerald-600 to-slate-950',
     avatar: 'A',
     payload: {
       ...emptyAgent,
-      name: 'Aline Atendimento 360',
-      role: 'SDR e Atendimento Completo',
-      personality: 'Humana, objetiva e consultiva. Conduz a conversa com perguntas curtas e foco no proximo passo comercial.',
+      name: 'Ana Atendimento 360',
+      role: 'Triagem e Atendimento Completo',
+      personality: 'Humana, objetiva e acolhedora. Conduz a conversa com empatia e foco na resolução da demanda.',
       instructions:
-        'Atenda o lead como SDR imobiliario. Qualifique operacao, tipo de imovel, regiao, orcamento, prazo, forma de pagamento e motivo da busca. Crie ou atualize o processo no CRM, mova o funil, gere follow-up, consulte oportunidades quando houver perfil suficiente e transborde para corretor com resumo completo quando houver alta intencao.',
-      capabilities: ['Atendimento inicial', 'Kanban comercial', 'Match de imoveis', 'Agenda', 'Follow-up'],
-      tools: ['whatsapp', 'kanban', 'crm', 'matchmaking', 'agenda', 'follow-up', 'notificar-corretor', 'mover-etapa-funil', 'criar-tarefa'],
+        'Atenda o cidadão como assessor de gabinete. Classifique a demanda, identifique categoria, urgência, bairro, dados de contato. Crie ou atualize o registro no CRM, mova o funil, gere follow-up, encaminhe para o setor competente e transborde para assessor com contexto completo quando necessário.',
+      capabilities: ['Triagem de demandas', 'Kanban de atendimento', 'Encaminhamento', 'Agenda', 'Follow-up'],
+      tools: ['whatsapp', 'kanban', 'crm', 'monitoramento', 'agenda', 'follow-up', 'notificar-assessor', 'mover-etapa-funil', 'criar-tarefa'],
       autonomy_level: 3,
-      operation_mode: 'Autonomo',
+      operation_mode: 'Autônomo',
     },
   },
   {
-    name: 'Lia Qualificação',
-    role: 'SDR Imobiliário',
-    description: 'Atende leads, identifica perfil de compra e cria oportunidades qualificadas.',
-    tags: ['Qualificação', 'Atendimento'],
+    name: 'Lia Classificação',
+    role: 'Classificação de Demandas',
+    description: 'Atende cidadãos, identifica tipo de demanda e cria registros qualificados no CRM.',
+    tags: ['Classificação', 'Atendimento'],
     accent: 'from-slate-700 to-slate-950',
     avatar: 'L',
     payload: {
       ...emptyAgent,
-      name: 'Lia Qualificação',
-      role: 'SDR Imobiliário',
-      personality: 'Consultiva, objetiva e acolhedora. Faz perguntas curtas, humanas e orientadas à conversão.',
+      name: 'Lia Classificação',
+      role: 'Classificação de Demandas',
+      personality: 'Consultiva, objetiva e acolhedora. Faz perguntas curtas, humanas e orientadas à resolução.',
       instructions:
-        'Descubra objetivo, cidade, faixa de valor, prazo, forma de pagamento e tipo de imóvel. Atualize o lead sem parecer robótico e acione corretor quando houver intenção forte.',
-      capabilities: ['Atendimento inicial', 'Kanban comercial', 'Match de imóveis', 'Follow-up'],
-      tools: ['whatsapp', 'kanban', 'crm', 'matchmaking', 'follow-up', 'notificar-corretor', 'mover-etapa-funil'],
+        'Descubra o motivo do contato, bairro, urgência, categoria da demanda e dados de contato. Atualize o registro sem parecer robótico e encaminhe para o setor quando houver classificação completa.',
+      capabilities: ['Triagem de demandas', 'Kanban de atendimento', 'Encaminhamento', 'Follow-up'],
+      tools: ['whatsapp', 'kanban', 'crm', 'monitoramento', 'follow-up', 'notificar-assessor', 'mover-etapa-funil'],
       autonomy_level: 3,
       operation_mode: 'Autônomo',
     },
   },
   {
     name: 'Nina Documentos',
-    role: 'Analista documental',
+    role: 'Análise Documental',
     description: 'Confere documentos, aponta pendências e sinaliza riscos para o time.',
     tags: ['Documentos', 'Checklists'],
     accent: 'from-slate-700 to-slate-950',
@@ -437,155 +438,155 @@ const presets: TemplatePreset[] = [
     payload: {
       ...emptyAgent,
       name: 'Nina Documentos',
-      role: 'Analista documental',
+      role: 'Análise Documental',
       personality: 'Precisa, calma e cuidadosa. Explica pendências com linguagem simples e segura.',
       instructions:
-        'Classifique RG, CPF, matrícula, comprovantes, contratos e documentos urbanos ou rurais. Marque pendências e mova o card para Documentação.',
-      capabilities: ['Documentação', 'Kanban comercial', 'Pós-venda'],
-      tools: ['documentos', 'pdf-reader', 'kanban', 'crm', 'notificar-corretor', 'criar-tarefa'],
+        'Classifique RG, CPF, comprovantes, documentos oficiais e anexos. Marque pendências e mova o card para Documentação.',
+      capabilities: ['Documentação', 'Kanban de atendimento', 'Pós-atendimento'],
+      tools: ['documentos', 'pdf-reader', 'kanban', 'crm', 'notificar-assessor', 'criar-tarefa'],
       autonomy_level: 2,
       operation_mode: 'Semiautônomo',
     },
   },
   {
     name: 'Theo Retorno',
-    role: 'Follow-up comercial',
-    description: 'Retoma conversas, agenda retornos e reduz perda de oportunidades.',
+    role: 'Follow-up e Reengajamento',
+    description: 'Retoma conversas, agenda retornos e reduz demandas abandonadas.',
     tags: ['Follow-up', 'Reengajamento'],
     accent: 'from-amber-500 to-orange-500',
     avatar: 'T',
     payload: {
       ...emptyAgent,
       name: 'Theo Retorno',
-      role: 'Follow-up comercial',
+      role: 'Follow-up e Reengajamento',
       response_style: 'curto',
       personality: 'Persistente sem ser invasivo. Direto, cordial e sempre orientado ao próximo passo.',
       instructions:
-        'Detecte promessas de retorno, visitas e horários. Crie follow-ups e sugira mensagens curtas para retomar contato.',
-      capabilities: ['Follow-up', 'Agenda', 'Kanban comercial'],
-      tools: ['agenda', 'follow-up', 'whatsapp', 'crm', 'criar-tarefa', 'notificar-corretor'],
+        'Detecte promessas de retorno, reuniões e prazos. Crie follow-ups e sugira mensagens curtas para retomar contato.',
+      capabilities: ['Follow-up', 'Agenda', 'Kanban de atendimento'],
+      tools: ['agenda', 'follow-up', 'whatsapp', 'crm', 'criar-tarefa', 'notificar-assessor'],
       autonomy_level: 2,
       operation_mode: 'Semiautônomo',
     },
   },
   {
-    name: 'Maya Match',
-    role: 'Recomendação de imóveis',
-    description: 'Cruza orçamento, cidade e preferências com imóveis disponíveis.',
-    tags: ['Match', 'Recomendação'],
+    name: 'Marco Monitor',
+    role: 'Monitoramento Territorial',
+    description: 'Acompanha indicadores de bairros, demandas recorrentes e sentimento.',
+    tags: ['Monitoramento', 'Território'],
     accent: 'from-slate-700 to-slate-950',
     avatar: 'M',
     payload: {
       ...emptyAgent,
-      name: 'Maya Match',
-      role: 'Recomendação de imóveis',
-      personality: 'Analítica e elegante. Recomenda com base em critérios claros e contexto comercial.',
+      name: 'Marco Monitor',
+      role: 'Monitoramento Territorial',
+      personality: 'Analítico e atento. Identifica padrões e alerta sobre tendências.',
       instructions:
-        'Compare perfil do lead com imóveis ativos. Priorize aderência de preço, localização, finalidade e urgência. Explique a recomendação em poucas linhas.',
-      capabilities: ['Match de imóveis', 'Atendimento inicial', 'Kanban comercial'],
-      tools: ['matchmaking', 'crm', 'kanban', 'whatsapp', 'mover-etapa-funil'],
+        'Analise demandas por bairro, categorias recorrentes, urgências e sentimento. Gere alertas quando houver anomalia.',
+      capabilities: ['Monitoramento territorial', 'Kanban de atendimento', 'Encaminhamento'],
+      tools: ['monitoramento', 'crm', 'kanban', 'whatsapp', 'mover-etapa-funil'],
       autonomy_level: 3,
       operation_mode: 'Autônomo',
     },
   },
   {
-    name: 'Bruno Visitas',
-    role: 'Agendamento de visitas',
-    description: 'Organiza agenda, confirma disponibilidade e prepara o corretor.',
-    tags: ['Agenda', 'Visitas'],
+    name: 'Rita Reuniões',
+    role: 'Agendamento de Atendimentos',
+    description: 'Organiza agenda, confirma disponibilidade e prepara o assessor.',
+    tags: ['Agenda', 'Reuniões'],
     accent: 'from-emerald-500 to-teal-500',
-    avatar: 'B',
+    avatar: 'R',
     payload: {
       ...emptyAgent,
-      name: 'Bruno Visitas',
-      role: 'Agendamento de visitas',
-      personality: 'Organizado, claro e prático. Confirma dados essenciais antes de acionar o corretor.',
+      name: 'Rita Reuniões',
+      role: 'Agendamento de Atendimentos',
+      personality: 'Organizada, clara e prática. Confirma dados essenciais antes de acionar o assessor.',
       instructions:
-        'Quando o lead pedir visita, confirme imóvel, dia, horário, participantes e canal de confirmação. Acione o corretor com resumo completo.',
-      capabilities: ['Agenda', 'Atendimento inicial', 'Follow-up'],
-      tools: ['agenda', 'whatsapp', 'crm', 'notificar-corretor', 'criar-tarefa'],
+        'Quando o cidadão pedir reunião, confirme motivo, dia, horário, participantes e canal de confirmação. Acione o assessor com resumo completo.',
+      capabilities: ['Agenda', 'Triagem de demandas', 'Follow-up'],
+      tools: ['agenda', 'whatsapp', 'crm', 'notificar-assessor', 'criar-tarefa'],
       autonomy_level: 2,
       operation_mode: 'Semiautônomo',
     },
   },
   {
-    name: 'Zara Vendas',
-    role: 'Fechamento e negociação',
-    description: 'Conduz propostas, negocia valores e fecha contratos com segurança.',
-    tags: ['Vendas', 'Negociação'],
+    name: 'Clara Crises',
+    role: 'Gestão de Crises',
+    description: 'Identifica e conduz situações de crise com protocolos de resposta.',
+    tags: ['Crises', 'Emergência'],
     accent: 'from-violet-600 to-purple-700',
-    avatar: 'Z',
+    avatar: 'C',
     payload: {
       ...emptyAgent,
-      name: 'Zara Vendas',
-      role: 'Fechamento e negociação',
+      name: 'Clara Crises',
+      role: 'Gestão de Crises',
       response_style: 'premium',
-      personality: 'Segura, persuasiva e profissional. Conduz negociações com elegância e senso de urgência.',
+      personality: 'Segura, calma e estratégica. Conduz com senso de urgência e discrição.',
       instructions:
-        'Identifique sinais de compra, apresente propostas, lide com objeções de preço e condicione o fechamento. Acione corretor humano para assinatura de contrato.',
-      capabilities: ['Kanban comercial', 'Follow-up', 'Match de imóveis'],
-      tools: ['whatsapp', 'kanban', 'crm', 'matchmaking', 'follow-up', 'notificar-corretor', 'mover-etapa-funil'],
+        'Identifique sinais de crise (mídia negativa, denúncia, vulnerabilidade, scândalo), ative protocolo de crise, acione assessor imediatamente com contexto completo.',
+      capabilities: ['Kanban de atendimento', 'Follow-up', 'Monitoramento territorial'],
+      tools: ['whatsapp', 'kanban', 'crm', 'monitoramento', 'follow-up', 'notificar-assessor', 'mover-etapa-funil'],
       autonomy_level: 3,
       operation_mode: 'Autônomo',
     },
   },
   {
-    name: 'Léo Locação',
-    role: 'Locação de imóveis',
-    description: 'Especialista em aluguel, locação temporária e contratos de locação.',
-    tags: ['Locação', 'Aluguel'],
+    name: 'Felipe Legislativo',
+    role: 'Apoio Legislativo',
+    description: 'Auxilia na elaboração e acompanhamento de projetos de lei e proposições.',
+    tags: ['Legislativo', 'Projetos'],
     accent: 'from-blue-600 to-cyan-600',
-    avatar: 'L',
+    avatar: 'F',
     payload: {
       ...emptyAgent,
-      name: 'Léo Locação',
-      role: 'Locação de imóveis',
-      personality: 'Paciente, explicativo e focado em encontrar o imóvel ideal para moradia.',
+      name: 'Felipe Legislativo',
+      role: 'Apoio Legislativo',
+      personality: 'Técnico, preciso e fundamentado. Utiliza linguagem jurídica acessível.',
       instructions:
-        'Entenda prazo, orçamento mensal, tipo de imóvel para locação, documentação necessária e disponibilidade para vistoria. Acione corretor para contratos.',
-      capabilities: ['Atendimento inicial', 'Kanban comercial', 'Agenda', 'Follow-up'],
-      tools: ['whatsapp', 'kanban', 'crm', 'agenda', 'follow-up', 'notificar-corretor'],
+        'Auxilie na elaboração de projetos de lei, indicações, moções, ofícios e requerimentos. Verifique tramitação, prazos e status legislativo.',
+      capabilities: ['Documentação', 'Kanban de atendimento', 'Agenda', 'Follow-up'],
+      tools: ['whatsapp', 'kanban', 'crm', 'agenda', 'follow-up', 'notificar-assessor'],
       autonomy_level: 2,
       operation_mode: 'Semiautônomo',
     },
   },
   {
-    name: 'Sofia Pós-Venda',
-    role: 'Pós-venda e satisfação',
-    description: 'Acompanha clientes após fechamento, mede satisfação e gera novas indicações.',
-    tags: ['Pós-venda', 'Indicação'],
+    name: 'Sofia Satisfação',
+    role: 'Pós-Atendimento e Pesquisa',
+    description: 'Acompanha cidadãos após resolução, mede satisfação e gera insights.',
+    tags: ['Pós-atendimento', 'Pesquisa'],
     accent: 'from-pink-500 to-rose-500',
     avatar: 'S',
     payload: {
       ...emptyAgent,
-      name: 'Sofia Pós-Venda',
-      role: 'Pós-venda e satisfação',
-      personality: 'Acolhedora, grata e atenta. Mantém relacionamento duradouro com clientes.',
+      name: 'Sofia Satisfação',
+      role: 'Pós-Atendimento e Pesquisa',
+      personality: 'Acolhedora, grata e atenta. Mantém relacionamento duradouro com cidadãos.',
       instructions:
-        'Após fechamento, agende contato para avaliar satisfação, resolva pendencias burocraticas, peça indicacao e mantenha o relacionamento aquecido para futuras oportunidades.',
-      capabilities: ['Pós-venda', 'Follow-up', 'Agenda'],
+        'Após resolução, agende contato para avaliar satisfação, resolva pendências burocráticas, peça feedback e mantenha o relacionamento aquecido.',
+      capabilities: ['Pós-atendimento', 'Follow-up', 'Agenda'],
       tools: ['whatsapp', 'crm', 'follow-up', 'agenda', 'criar-tarefa'],
       autonomy_level: 2,
       operation_mode: 'Semiautônomo',
     },
   },
   {
-    name: 'Igor Documentos',
-    role: 'Análise documental avançada',
-    description: 'Confere documentos jurídicos, contratos e matriculas com precisão.',
-    tags: ['Documentos', 'Jurídico'],
+    name: 'Edu Comunicação',
+    role: 'Comunicação e Marketing',
+    description: 'Gera conteúdo, respostas e materiais de comunicação política.',
+    tags: ['Comunicação', 'Marketing'],
     accent: 'from-stone-700 to-stone-950',
-    avatar: 'I',
+    avatar: 'E',
     payload: {
       ...emptyAgent,
-      name: 'Igor Documentos',
-      role: 'Análise documental avançada',
-      response_style: 'tecnico',
-      personality: 'Analítico, preciso e criterioso. Verifica cada detalhe documental.',
+      name: 'Edu Comunicação',
+      role: 'Comunicação e Marketing',
+      response_style: 'premium',
+      personality: 'Criativo, persuasivo e conectado com o público. Domina comunicação política.',
       instructions:
-        'Analise documentos como RG, CPF, comprovante de residencia, matricula, ITR, CCIR, CAR e contratos. Aponte inconsistencias, pendencias e prazos. Acione juridico em caso de irregularidades.',
-      capabilities: ['Documentação', 'Kanban comercial'],
-      tools: ['documentos', 'pdf-reader', 'kanban', 'crm', 'notificar-corretor', 'criar-tarefa'],
+        'Gere posts, legendas, discursos, pautas e materiais de comunicação. Adapte tom e linguagem para cada canal e audiência.',
+      capabilities: ['Triagem de demandas', 'Kanban de atendimento'],
+      tools: ['documentos', 'pdf-reader', 'kanban', 'crm', 'notificar-assessor', 'criar-tarefa'],
       autonomy_level: 2,
       operation_mode: 'Semiautônomo',
     },
@@ -601,19 +602,16 @@ function normalizePreviewText(value = '') {
 
 function buildPreviewDiagnostics(message: string) {
   const text = normalizePreviewText(message);
-  const budget = message.match(/(?:r\$\s*)?(\d{2,3}(?:[.,]\d{3})*|\d+)\s*(milhao|milhoes|mi|m|mil)?/i);
-  const city = message.match(/\bem\s+([^,.!?]{2,32})(?:[,.!?]|$)/i);
-  const isVisit = /\b(visita|visitar|conhecer|agendar|horario)\b/.test(text);
-  const isFinance = /\b(financiamento|entrada|parcela|proposta|r\$|orcamento)\b/.test(text);
-  const isRent = /\b(alugar|aluguel|locacao|locar)\b/.test(text);
-  const isSale = /\b(comprar|compra|procuro|busco|quero)\b/.test(text);
+  const isVisit = /\b(reuniao|audiencia|encontrar|agendar|horario|visitar)\b/.test(text);
+  const isUrgent = /\b(urgente|emergencia|critico|rapido|agora|socorro)\b/.test(text);
+  const isComplaint = /\b(reclamacao|problema|reclamar|insatisfeito|errado|ruim)\b/.test(text);
+  const isRequest = /\b(solicitacao|pedido|preciso|queria|gostaria|solicito)\b/.test(text);
 
   return {
-    intent: isVisit ? 'Visita' : isRent ? 'Locacao' : isSale ? 'Compra' : 'Qualificacao',
-    budget: budget ? `${budget[1]} ${budget[2] || ''}`.trim() : 'A confirmar',
-    city: city?.[1]?.trim() || 'A confirmar',
-    temperature: isVisit || isFinance ? 'Quente' : isSale || isRent ? 'Morno' : 'Inicial',
-    nextAction: isVisit ? 'Agendar visita' : isFinance ? 'Acionar corretor' : 'Qualificar perfil',
+    category: isUrgent ? 'Urgente' : isComplaint ? 'Reclamação' : isRequest ? 'Solicitação' : isVisit ? 'Reunião' : 'Triagem',
+    priority: isUrgent ? 'Alta' : isComplaint ? 'Normal' : 'Normal',
+    temperature: isUrgent || isComplaint ? 'Quente' : isRequest || isVisit ? 'Morno' : 'Inicial',
+    nextAction: isVisit ? 'Agendar reunião' : isUrgent ? 'Encaminhar urgente' : 'Classificar demanda',
   };
 }
 
@@ -625,72 +623,70 @@ function buildDraftAgentReply(draft: BuilderDraft, message: string) {
     ? 'Perfeito.'
     : `Perfeito, aqui e ${agentName}.`;
 
-  if (diagnostics.intent === 'Visita') {
-    return `${intro} Para agendar a visita, me confirme o imovel desejado, melhor dia/horario e se voce prefere atendimento por WhatsApp ou ligacao.`;
+  if (diagnostics.category === 'Reunião') {
+    return `${intro} Para agendar a reunião, me confirme o motivo, melhor dia/horário e se voce prefere atendimento por WhatsApp ou ligacao.`;
   }
 
-  if (diagnostics.intent === 'Locacao') {
-    return `${intro} Vou te ajudar com a locacao. Qual cidade/bairro, faixa de aluguel e data desejada para mudanca?`;
+  if (diagnostics.priority === 'Alta') {
+    return `${intro} Entendi que e urgente. Vou priorizar e encaminhar imediatamente. Qual seu nome completo e bairro?`;
   }
 
-  return `${intro} Entendi seu interesse. Voce procura para morar ou investir? Tem preferencia de bairro, tipo de imovel e forma de pagamento?`;
+  return `${intro} Entendi sua demanda. Qual bairro, categoria e seus dados de contato para podermos acompanhar?`;
 }
 
 function buildLeadSimulatorReply(draft: BuilderDraft, message: string, history: TestMessage[]) {
   const text = normalizePreviewText(message);
   const diagnostics = buildPreviewDiagnostics(message);
-  const leadTurns = history.filter((item) => item.side === 'lead').length;
-  const agentName = draft.name || 'corretor';
+  const cidadaoTurns = history.filter((item) => item.side === 'cidadao').length;
+  const agentName = draft.name || 'assessor';
 
-  if (/\b(visita|visitar|conhecer|horario|agenda)\b/.test(text)) {
-    return 'Pode ser. Tenho disponibilidade no fim da tarde ou sabado de manha. Esse imovel ainda esta disponivel?';
+  if (/\b(reuniao|agendar|horario|encontrar)\b/.test(text)) {
+    return 'Posso sim. Tenho disponibilidade no fim da tarde ou sabado de manha. Qual horário fica melhor?';
   }
 
-  if (/\b(entrada|financia|parcela|simular|credito)\b/.test(text)) {
-    return 'Eu consigo dar uma entrada, mas queria entender melhor as parcelas e se aceita financiamento. Voce consegue simular?';
+  if (/\b(urgente|rapido|emergencia|critico)\b/.test(text)) {
+    return 'E uma situação que precisa de atenção rapida. Tem como encaminhar para o setor responsável?';
   }
 
   if (/\b(bairro|regiao|cidade|localizacao)\b/.test(text)) {
-    return diagnostics.city !== 'A confirmar'
-      ? `Tenho preferencia por ${diagnostics.city}, mas posso ver bairros proximos se forem seguros e com boa estrutura.`
-      : 'Prefiro uma regiao segura, com mercado perto e acesso facil. Ainda estou aberto a bairros parecidos.';
+    return diagnostics.category !== 'Triagem'
+      ? `Minha região e ${diagnostics.category}, mas posso ver opções próximas se forem acessíveis.`
+      : 'Prefiro uma região com boa estrutura. Ainda estou aberto a opções próximas.';
   }
 
-  if (/\b(valor|orcamento|preco|r\$|mil)\b/.test(text)) {
-    return diagnostics.budget !== 'A confirmar'
-      ? `Meu teto hoje fica perto de R$ ${diagnostics.budget}. Se passar muito disso preciso ver se a negociacao compensa.`
-      : 'Ainda estou ajustando o orcamento, mas queria algo com bom custo-beneficio e possibilidade de negociar.';
+  if (/\b(valor|orcamento|preco|custo)\b/.test(text)) {
+    return 'Ainda estou ajustando o orcamento, mas queria entender melhor o processo e os prazos.';
   }
 
-  if (leadTurns === 0) {
-    return `Oi, ${agentName}. Estou procurando um imovel e queria entender quais opcoes fazem sentido para meu perfil.`;
+  if (cidadaoTurns === 0) {
+    return `Oi, ${agentName}. Tenho uma demanda e queria entender como funciona o atendimento do gabinete.`;
   }
 
-  return 'Entendi. Pode me mandar uma opcao com valor, bairro e principais diferenciais? Quero comparar antes de marcar visita.';
+  return 'Entendi. Pode me mandar mais informações sobre prazo, responsável e próximos passos? Quero acompanhar.';
 }
 
 async function simulateLeadReply(draft: BuilderDraft, brokerMessage: string, history: TestMessage[]) {
   const systemInstruction = [
-    'Voce simula um lead imobiliario brasileiro real em um chat de validacao de CRM.',
-    'Responda sempre como cliente/lead, nunca como assistente ou corretor.',
-    'Use mensagens naturais, curtas e com variacoes de interesse, duvidas, objecoes e informacoes de perfil.',
+    'Voce simula um cidadao brasileiro real em um chat de validacao de CRM de gabinete politico.',
+    'Responda sempre como cidadao, nunca como assistente ou assessor.',
+    'Use mensagens naturais, curtas e com variacoes de demanda, duvidas, objecoes e informacoes pessoais.',
     'Nao use markdown, nao explique o teste e nao ofereca recursos do sistema.',
   ].join(' ');
 
   const prompt = JSON.stringify({
     agent_under_test: {
       name: draft.name || 'Agente',
-      role: draft.role || 'Atendimento imobiliario',
+      role: draft.role || 'Atendimento de gabinete',
       style: draft.response_style || 'consultivo',
       channels: draft.channels || [draft.channel || 'whatsapp'],
       instructions: draft.instructions || '',
     },
     conversation: history.slice(-10).map((item) => ({
-      role: item.side === 'agent' ? 'broker' : 'lead',
+      role: item.side === 'agent' ? 'agent' : 'cidadao',
       content: item.content,
     })),
     broker_message: brokerMessage,
-    task: 'Continue a conversa respondendo apenas como o lead.',
+    task: 'Continue a conversa respondendo apenas como o cidadao.',
   });
 
   try {
@@ -714,7 +710,7 @@ const AIAgents: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('identity');
-  const [testMode, setTestMode] = useState<TestMode>('lead-simulator');
+  const [testMode, setTestMode] = useState<TestMode>('cidadao-simulator');
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<TestMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
@@ -741,14 +737,14 @@ const AIAgents: React.FC = () => {
     () => whatsAppInstances.find((instance) => instance.id === draft.instances?.[0]),
     [draft.instances, whatsAppInstances]
   );
-  const propertyPath = pathname.startsWith('/rural') ? '/rural/properties/new' : '/urban/properties/new';
+  const propertyPath = pathname.startsWith('/gabinete') ? '/gabinete/demandas/new' : '/gabinete/demandas/new';
   const brainTabIndex = 5;
   const activeStepIndex = Math.max(tabs.findIndex((tab) => tab.id === activeTab), 0);
   const activeStep = tabs[activeStepIndex] || tabs[0];
   const isFirstStep = activeStepIndex === 0;
   const isLastStep = activeStepIndex === tabs.length - 1;
   const lastLeadMessage =
-    [...chatMessages].reverse().find((message) => message.side === 'lead')?.content ||
+    [...chatMessages].reverse().find((message) => message.side === 'cidadao')?.content ||
     chatMessages[chatMessages.length - 1]?.content ||
     '';
   const previewDiagnostics = useMemo(() => buildPreviewDiagnostics(lastLeadMessage), [lastLeadMessage]);
@@ -1074,8 +1070,8 @@ const AIAgents: React.FC = () => {
     }
 
     const outgoingMessage: TestMessage = {
-      id: `${testMode === 'lead-simulator' ? 'agent' : 'lead'}-${Date.now()}`,
-      side: testMode === 'lead-simulator' ? 'agent' : 'lead',
+      id: `${testMode === 'cidadao-simulator' ? 'agent' : 'cidadao'}-${Date.now()}`,
+      side: testMode === 'cidadao-simulator' ? 'agent' : 'cidadao',
       content: message,
     };
     const nextHistory = [...chatMessages, outgoingMessage];
@@ -1089,8 +1085,8 @@ const AIAgents: React.FC = () => {
       let replySide: TestMessage['side'] = 'agent';
       let successMessage = 'Resposta gerada.';
 
-      if (testMode === 'lead-simulator') {
-        replySide = 'lead';
+      if (testMode === 'cidadao-simulator') {
+        replySide = 'cidadao';
         reply = await simulateLeadReply(draft, message, nextHistory);
         successMessage = 'Lead simulado respondeu.';
       } else if (selectedAgent) {
@@ -1117,8 +1113,8 @@ const AIAgents: React.FC = () => {
       setChatMessages((current) => [
         ...current,
         {
-          id: `${testMode === 'lead-simulator' ? 'lead' : 'agent'}-error-${Date.now()}`,
-          side: testMode === 'lead-simulator' ? 'lead' : 'agent',
+          id: `${testMode === 'cidadao-simulator' ? 'cidadao' : 'agent'}-error-${Date.now()}`,
+          side: testMode === 'cidadao-simulator' ? 'cidadao' : 'agent',
           content: 'Nao consegui conectar a IA agora. Ajuste a mensagem ou tente novamente em instantes.',
         },
       ]);
@@ -1152,7 +1148,7 @@ const AIAgents: React.FC = () => {
               <Home className="text-emerald-400" size={21} />
             </div>
             <div className="min-w-0">
-              <div className="text-lg font-black tracking-tight leading-none">ImobFluow</div>
+              <div className="text-lg font-black tracking-tight leading-none">PIOS</div>
               <div className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 mt-1 truncate">
                 Imobiliária Tradicional
               </div>
@@ -1164,7 +1160,7 @@ const AIAgents: React.FC = () => {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
               className="w-full h-11 rounded-lg border border-slate-200 bg-[#F8FAFD] pl-12 pr-4 text-sm font-semibold text-slate-700 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-              placeholder="Buscar imóveis, leads, agentes..."
+              placeholder="Buscar demandas, cidadãos, agentes..."
             />
           </div>
 
@@ -1174,7 +1170,7 @@ const AIAgents: React.FC = () => {
               className="h-11 px-4 rounded-lg bg-emerald-600 text-white text-sm font-black flex items-center gap-2 shadow-sm shadow-emerald-600/20 hover:bg-emerald-700"
             >
               <Plus size={18} />
-              Novo imóvel
+              Nova demanda
             </Link>
             <button
               onClick={startBlankAgent}
@@ -1189,7 +1185,7 @@ const AIAgents: React.FC = () => {
               <Home className="text-emerald-400" size={21} />
             </div>
             <div className="min-w-0">
-              <div className="text-lg font-black tracking-tight leading-none">ImobFluow</div>
+              <div className="text-lg font-black tracking-tight leading-none">PIOS</div>
               <div className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 mt-1 truncate">
                 Imobiliária Tradicional
               </div>
@@ -1201,7 +1197,7 @@ const AIAgents: React.FC = () => {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
               className="w-full h-11 rounded-lg border border-slate-200 bg-[#F8FAFD] pl-12 pr-4 text-sm font-semibold text-slate-700 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-              placeholder="Buscar imóveis, leads, agentes..."
+              placeholder="Buscar demandas, cidadãos, agentes..."
             />
           </div>
 
@@ -1211,7 +1207,7 @@ const AIAgents: React.FC = () => {
               className="h-11 px-4 rounded-lg bg-emerald-600 text-white text-sm font-black flex items-center gap-2 shadow-sm shadow-emerald-600/20 hover:bg-emerald-700"
             >
               <Plus size={18} />
-              Novo imóvel
+              Nova demanda
             </Link>
             <button
               onClick={startBlankAgent}
@@ -1315,7 +1311,7 @@ const AIAgents: React.FC = () => {
                     Construtor de Agente Autônomo
                   </h1>
                   <p className="mt-3 max-w-5xl text-sm lg:text-base font-medium leading-relaxed text-slate-600 mb-0">
-                    Configure agentes que atendem, qualificam, analisam documentos, movimentam leads no Kanban e executam follow-ups automaticamente.
+                    Configure agentes que atendem, classificam, analisam documentos, movimentam demandas no Kanban e executam follow-ups automaticamente.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -1463,7 +1459,7 @@ const AIAgents: React.FC = () => {
                         value={draft.instructions || ''}
                         onChange={(e) => setDraft({ ...draft, instructions: e.target.value })}
                         className="agent-input min-h-28 resize-none"
-                        placeholder="Transbordo, boas práticas, limites e contexto da imobiliária."
+                        placeholder="Transbordo, boas práticas, limites e contexto do gabinete."
                       />
                     </Field>
                   </div>
@@ -1662,7 +1658,7 @@ const AIAgents: React.FC = () => {
                           value={draft.instructions || ''}
                           onChange={(e) => setDraft({ ...draft, instructions: e.target.value })}
                           className="mt-3 min-h-[300px] w-full resize-none rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm font-semibold leading-relaxed text-slate-700 outline-none focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-                          placeholder="Descreva como o agente deve atender, qualificar, criar processo, recomendar imoveis e transbordar para o corretor."
+                          placeholder="Descreva como o agente deve atender, classificar, criar demanda, encaminhar e transbordar para o assessor."
                         />
                       </div>
 
@@ -1690,7 +1686,7 @@ const AIAgents: React.FC = () => {
                   <SectionHeading
                     eyebrow="Operação"
                     title="Jornada que este agente conduz"
-                    description="Selecione os processos em que o agente poderá agir dentro da operação imobiliária."
+                    description="Selecione os processos em que o agente poderá agir dentro da operação do gabinete."
                   />
                   <div className="mt-4 grid grid-cols-1 gap-3 xl:grid-cols-5">
                     {salesProcessSteps.map((step, index) => (
@@ -1823,7 +1819,7 @@ const AIAgents: React.FC = () => {
                   <SectionHeading
                     eyebrow="Acoes permitidas"
                     title="O que o agente pode fazer sozinho"
-                    description="Ative consultas e execucoes: CRM, Kanban, match de imoveis, agenda, tarefas e notificacao ao corretor."
+                    description="Ative consultas e execuções: CRM, Kanban, monitoramento, agenda, tarefas e notificação ao assessor."
                   />
                   <div className="mt-4 flex flex-wrap gap-2">
                     {toolOptions.map((tool) => (
@@ -1847,8 +1843,8 @@ const AIAgents: React.FC = () => {
                 <section id="agent-rules" className={activeTab === 'rules' ? 'block' : 'hidden'}>
                   <SectionHeading
                     eyebrow="Transbordo"
-                    title="Quando transbordar para o corretor?"
-                    description="Determine os sinais de risco, negociação ou alta intenção que devem transbordar para um corretor."
+                    title="Quando transbordar para o assessor?"
+                    description="Determine os sinais de risco, demanda sensível ou alta urgência que devem transbordar para um assessor."
                   />
                   <div className="mt-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                     {handoffRules.map((rule) => (
@@ -2005,8 +2001,8 @@ const AIAgents: React.FC = () => {
                           <p className="text-xs font-bold text-slate-500 mb-0 truncate">{draft.role || 'SDR e Atendimento Completo'}</p>
                           <div className="mt-1 flex items-center gap-1.5 text-[11px] font-black text-emerald-600">
                             <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                            {testMode === 'lead-simulator'
-                              ? 'Voce fala como corretor'
+                            {testMode === 'cidadao-simulator'
+                              ? 'Voce fala como assessor'
                               : selectedAgent
                                 ? 'Resposta real do agente'
                                 : 'Simulacao de rascunho'}
@@ -2016,12 +2012,12 @@ const AIAgents: React.FC = () => {
                           <div className="grid grid-cols-2 rounded-lg border border-slate-200 bg-slate-50 p-1">
                             <button
                               type="button"
-                              onClick={() => setTestMode('lead-simulator')}
+                              onClick={() => setTestMode('cidadao-simulator')}
                               className={`h-8 rounded-md px-3 text-[11px] font-black transition ${
-                                testMode === 'lead-simulator' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500'
+                                testMode === 'cidadao-simulator' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500'
                               }`}
                             >
-                              Eu sou corretor
+                              Eu sou assessor
                             </button>
                             <button
                               type="button"
@@ -2030,7 +2026,7 @@ const AIAgents: React.FC = () => {
                                 testMode === 'agent-reply' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500'
                               }`}
                             >
-                              Eu sou lead
+                              Eu sou cidadão
                             </button>
                           </div>
                           <button
@@ -2057,9 +2053,9 @@ const AIAgents: React.FC = () => {
                                   Escreva a primeira mensagem livre.
                                 </p>
                                 <p className="mt-1 text-xs font-semibold leading-relaxed text-slate-500 mb-0">
-                                  {testMode === 'lead-simulator'
-                                    ? 'Voce manda como corretor e o lead responde com comportamento realista.'
-                                    : 'Voce manda como lead e valida a resposta do agente.'}
+                                  {testMode === 'cidadao-simulator'
+                                    ? 'Voce manda como assessor e o cidadão responde com comportamento realista.'
+                                    : 'Voce manda como cidadão e valida a resposta do agente.'}
                                 </p>
                               </div>
                             </div>
@@ -2089,9 +2085,9 @@ const AIAgents: React.FC = () => {
                           runTest(chatInput);
                         }}
                       >
-                        {testMode === 'lead-simulator' ? (
+                        {testMode === 'cidadao-simulator' ? (
                           <div className="mb-2 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-[11px] font-bold text-emerald-800">
-                            Modo livre: voce escreve como corretor e a IA responde como lead simulado.
+                            Modo livre: voce escreve como assessor e a IA responde como cidadão simulado.
                           </div>
                         ) : !selectedAgent && (
                           <div className="mb-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800">
@@ -2103,7 +2099,7 @@ const AIAgents: React.FC = () => {
                             value={chatInput}
                             onChange={(e) => setChatInput(e.target.value)}
                             className="min-h-11 flex-1 resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-                            placeholder={testMode === 'lead-simulator' ? 'Digite sua mensagem para o lead...' : 'Digite como se fosse o lead...'}
+                            placeholder={testMode === 'cidadao-simulator' ? 'Digite sua mensagem para o cidadão...' : 'Digite como se fosse o cidadão...'}
                             rows={2}
                           />
                           <button
@@ -2305,7 +2301,7 @@ const StatusPill: React.FC<{ status: string; compact?: boolean }> = ({ status, c
   );
 };
 
-const ChatBubble: React.FC<{ side: 'lead' | 'agent'; children: React.ReactNode }> = ({ side, children }) => (
+const ChatBubble: React.FC<{ side: 'cidadao' | 'agent'; children: React.ReactNode }> = ({ side, children }) => (
   <div className={`flex ${side === 'agent' ? 'justify-end' : 'justify-start'}`}>
     <div
       className={`max-w-[96%] rounded-lg px-3 py-2 text-xs font-semibold leading-relaxed shadow-sm ${

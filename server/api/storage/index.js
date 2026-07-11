@@ -23,21 +23,17 @@ const upload = multer({
 });
 
 const BUCKET_MAP = {
-  'agency-assets': 'imobzyimg',
-  'property-images': 'imobzyimg',
-  imobzyimg: 'imobzyimg',
-  'imobzy-media': 'imobzyimg',
-  imobzymsg: 'imobzymsg',
-  'whatsapp-media': 'whatsapp-media',
-  documents: 'documents',
-  'imobzy-documents': 'documents',
-  exports: 'exports',
-  'imobzy-exports': 'exports',
+  'agency-assets': 'pios-media',
+  'property-images': 'pios-media',
+  'pios-media': 'pios-media',
+  'whatsapp-media': 'pios-whatsapp',
+  documents: 'pios-documents',
+  exports: 'pios-exports',
 };
 
 const ALLOWED_MIME_BY_BUCKET = {
-  imobzyimg: new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
-  imobzymsg: new Set([
+  'pios-media': new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
+  'pios-whatsapp': new Set([
     'image/jpeg',
     'image/png',
     'image/webp',
@@ -57,7 +53,7 @@ const ALLOWED_MIME_BY_BUCKET = {
     'video/mp4',
     'application/pdf',
   ]),
-  documents: new Set([
+  'pios-documents': new Set([
     'application/pdf',
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -65,7 +61,7 @@ const ALLOWED_MIME_BY_BUCKET = {
     'image/png',
     'image/webp',
   ]),
-  exports: new Set([
+  'pios-exports': new Set([
     'application/pdf',
     'text/csv',
     'application/json',
@@ -98,7 +94,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Arquivo nao enviado.' });
     }
 
-    const requestedBucket = req.body.bucket || 'imobzyimg';
+    const requestedBucket = req.body.bucket || 'pios-media';
     const bucket = BUCKET_MAP[requestedBucket];
 
     if (!bucket) {
@@ -353,7 +349,7 @@ function buildContentAddressedKey(tenantId, folder, sha256, extension) {
 }
 
 function defaultFolderForBucket(bucket) {
-  if (bucket === 'imobzymsg' || bucket === 'whatsapp-media') return 'whatsapp/media';
+  if (bucket === 'whatsapp-media' || bucket === 'pios-whatsapp') return 'whatsapp/media';
   if (bucket === 'documents') return 'documents';
   if (bucket === 'exports') return 'exports';
   return 'uploads';

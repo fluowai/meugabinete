@@ -1,4 +1,3 @@
-import L from 'leaflet';
-import 'leaflet-draw/dist/leaflet.draw.js';
+const leafletDrawShim = {};
 
-export default L;
+export default leafletDrawShim;

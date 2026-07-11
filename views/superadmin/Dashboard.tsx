@@ -1,10 +1,9 @@
 import { logger } from '@/utils/logger';
 import React, { useEffect, useState } from 'react';
+import { Activity, Building2, DollarSign, Server, Users } from 'lucide-react';
 import { supabase } from '../../services/supabase';
-import { Users, Building2, Server, DollarSign, Activity } from 'lucide-react';
 
 const SuperAdminDashboard: React.FC = () => {
-  logger.info('📊 [SuperAdminDashboard] Rendering...');
   const [stats, setStats] = useState({
     totalTenants: 0,
     activeTenants: 0,
@@ -20,19 +19,16 @@ const SuperAdminDashboard: React.FC = () => {
 
   const fetchStats = async () => {
     try {
-      // 1. Count Tenants
-      const { count: total, error: err1 } = await supabase
+      const { count: total } = await supabase
         .from('organizations')
         .select('*', { count: 'exact', head: true });
 
-      // 2. Count Active
-      const { count: active, error: err2 } = await supabase
+      const { count: active } = await supabase
         .from('organizations')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'active');
 
-      // 3. Calc Revenue (Mock for now, would sum plans value)
-      const revenue = active ? active * 97 : 0; // Assuming basic plan price avg
+      const revenue = active ? active * 197 : 0;
 
       setStats({
         totalTenants: total || 0,
@@ -50,7 +46,7 @@ const SuperAdminDashboard: React.FC = () => {
 
   const modules = [
     {
-      title: 'Total de Imobiliárias',
+      title: 'Total de Gabinetes',
       value: stats.totalTenants,
       icon: Building2,
       color: 'bg-blue-500',
@@ -62,8 +58,8 @@ const SuperAdminDashboard: React.FC = () => {
       color: 'bg-green-500',
     },
     {
-      title: 'Receita Mensal (Est.)',
-      value: `R$ ${stats.totalRevenue.toLocaleString()}`,
+      title: 'Receita Mensal (est.)',
+      value: `R$ ${stats.totalRevenue.toLocaleString('pt-BR')}`,
       icon: DollarSign,
       color: 'bg-indigo-500',
     },
@@ -79,61 +75,56 @@ const SuperAdminDashboard: React.FC = () => {
 
   return (
     <>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Visão Geral</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-800">Visao geral</h1>
         {isFresh && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg animate-pulse">
+          <div className="flex animate-pulse items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-amber-700">
             <Activity size={18} />
-            <span className="text-sm font-bold">Início Rápido Ativo</span>
+            <span className="text-sm font-bold">Inicio rapido ativo</span>
           </div>
         )}
       </div>
 
       {isFresh && (
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-8 text-white mb-8 shadow-xl">
+        <div className="mb-8 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-white shadow-xl">
           <div className="max-w-2xl">
-            <h2 className="text-3xl font-black mb-3 text-white">
-              Bem-vindo ao seu novo painel, Proprietário!
+            <h2 className="mb-3 text-3xl font-black text-white">
+              Bem-vindo ao painel do Meu Gabinete
             </h2>
-            <p className="text-blue-100 mb-6 text-lg">
-              O sistema está pronto. O primeiro passo é criar os planos de
-              assinatura e depois cadastrar sua primeira imobiliária.
+            <p className="mb-6 text-lg text-blue-100">
+              Configure os planos de assinatura e cadastre o primeiro gabinete para iniciar a operacao.
             </p>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-4">
               <a
                 href="/superadmin/plans"
-                className="px-6 py-3 bg-white text-blue-700 rounded-xl font-bold hover:bg-blue-50 transition-all shadow-lg"
+                className="rounded-xl bg-white px-6 py-3 font-bold text-blue-700 shadow-lg transition-all hover:bg-blue-50"
               >
-                Configurar Planos
+                Configurar planos
               </a>
               <a
                 href="/superadmin/tenants"
-                className="px-6 py-3 bg-blue-500 text-white border border-blue-400 rounded-xl font-bold hover:bg-blue-400 transition-all"
+                className="rounded-xl border border-blue-400 bg-blue-500 px-6 py-3 font-bold text-white transition-all hover:bg-blue-400"
               >
-                Cadastrar Imobiliária
+                Cadastrar gabinete
               </a>
             </div>
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {modules.map((mod, index) => {
+      <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {modules.map((mod) => {
           const Icon = mod.icon;
           return (
             <div
-              key={index}
-              className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center justify-between"
+              key={mod.title}
+              className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-6 shadow-sm"
             >
               <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">
-                  {mod.title}
-                </p>
+                <p className="mb-1 text-sm font-medium text-gray-500">{mod.title}</p>
                 <p className="text-2xl font-bold text-gray-900">{mod.value}</p>
               </div>
-              <div
-                className={`p-3 rounded-lg ${mod.color} text-white shadow-lg shadow-gray-200`}
-              >
+              <div className={`rounded-lg p-3 text-white shadow-lg shadow-gray-200 ${mod.color}`}>
                 <Icon size={24} />
               </div>
             </div>
@@ -141,24 +132,18 @@ const SuperAdminDashboard: React.FC = () => {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-gray-800">
             <Activity size={20} className="text-gray-400" />
-            Atividade Recente
+            Atividade recente
           </h2>
-          <div className="text-center py-8 text-gray-500">
-            Nenhuma atividade recente registrada.
-          </div>
+          <div className="py-8 text-center text-gray-500">Nenhuma atividade recente registrada.</div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">
-            Alertas do Sistema
-          </h2>
-          <div className="text-center py-8 text-gray-500">
-            Sistema operando normalmente.
-          </div>
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-bold text-gray-800">Alertas do sistema</h2>
+          <div className="py-8 text-center text-gray-500">Sistema operando normalmente.</div>
         </div>
       </div>
     </>

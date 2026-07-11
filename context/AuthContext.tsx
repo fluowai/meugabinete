@@ -14,14 +14,14 @@ interface UserProfile {
   id: string;
   email: string;
   full_name: string;
-  role: 'admin' | 'broker' | 'superadmin';
+  role: 'admin' | 'assessor' | 'superadmin';
   avatar_url?: string;
   organization_id?: string;
   organization?: {
     id: string;
     name: string;
     slug: string;
-    niche: 'rural' | 'traditional';
+    niche: 'gabinete' | 'campanha' | 'legislativo';
     plan_id?: string;
     trial_ends_at?: string;
     subscription_status?: 'trial' | 'active' | 'payment_required' | 'suspended';
@@ -276,7 +276,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         id: data.user.id,
         email: data.user.email,
         full_name: fullName,
-        role: 'broker',
+        role: 'assessor',
       });
     }
   };

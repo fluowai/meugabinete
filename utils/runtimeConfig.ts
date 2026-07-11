@@ -11,7 +11,7 @@ type RuntimeConfig = {
 
 const getRuntimeConfig = (): RuntimeConfig => {
   if (typeof window === 'undefined') return {};
-  return ((window as any).__IMOBZY_CONFIG__ || {}) as RuntimeConfig;
+  return ((window as any).__PIOS_CONFIG__ || {}) as RuntimeConfig;
 };
 
 export const getRuntimeEnv = (key: keyof RuntimeConfig, fallback = ''): string => {

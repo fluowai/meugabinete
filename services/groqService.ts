@@ -17,7 +17,7 @@ export const groqService = {
             {
               role: 'system',
               content:
-                'Você é um especialista em marketing imobiliário rural e urbano.',
+                'Você é um especialista em gestão política, comunicação e atendimento ao cidadão.',
             },
             { role: 'user', content: prompt },
           ],

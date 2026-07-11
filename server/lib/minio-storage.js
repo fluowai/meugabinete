@@ -11,11 +11,11 @@ const BUCKET_ENV = {
 };
 
 const BUCKET_FALLBACKS = {
-  media: 'imobzy-media',
+  media: 'pios-media',
   whatsapp: 'whatsapp-media',
-  documents: 'imobzy-documents',
-  backups: 'imobzy-backups',
-  exports: 'imobzy-exports',
+  documents: 'pios-documents',
+  backups: 'pios-backups',
+  exports: 'pios-exports',
 };
 
 let minioRuntimeConfig = {};
@@ -45,36 +45,35 @@ export function allowSupabaseStorageFallback() {
   return provider === 'supabase' || firstEnv(['ALLOW_SUPABASE_STORAGE_FALLBACK']).toLowerCase() === 'true';
 }
 
-export function resolveMediaBucket(requestedBucket = 'imobzyimg') {
+export function resolveMediaBucket(requestedBucket = 'pios-media') {
   const normalized = String(requestedBucket || '').trim();
 
   if (
     normalized === 'agency-assets' ||
     normalized === 'property-images' ||
     normalized === 'properties' ||
-    normalized === 'imobzyimg' ||
-    normalized === 'imobzy-media'
+    normalized === 'pios-media'
   ) {
     return getBucketName('media');
   }
 
   if (
-    normalized === 'imobzymsg' ||
     normalized === 'whatsapp-media' ||
-    normalized === 'whatsapp'
+    normalized === 'whatsapp' ||
+    normalized === 'pios-whatsapp'
   ) {
     return getBucketName('whatsapp');
   }
 
-  if (normalized === 'documents' || normalized === 'imobzy-documents') {
+  if (normalized === 'documents' || normalized === 'pios-documents') {
     return getBucketName('documents');
   }
 
-  if (normalized === 'exports' || normalized === 'imobzy-exports') {
+  if (normalized === 'exports' || normalized === 'pios-exports') {
     return getBucketName('exports');
   }
 
-  if (normalized === 'backups' || normalized === 'imobzy-backups') {
+  if (normalized === 'backups' || normalized === 'pios-backups') {
     return getBucketName('backups');
   }
 

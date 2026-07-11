@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       if (domainData) {
         organization = domainData;
       } 
-      // 3. Try to resolve by Subdomain (e.g. slug.imobzy.com.br)
+      // 3. Try to resolve by Subdomain (e.g. slug.political-os.com.br)
       else if (cleanHost.includes('.')) {
         const potentialSlug = cleanHost.split('.')[0];
         const { data: subData, error: subError } = await supabase
