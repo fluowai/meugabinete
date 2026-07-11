@@ -1371,14 +1371,6 @@ Use essas etapas como roteiro operacional. Identifique a etapa mais adequada pel
     if (raw.includes('perdido')) return 'Arquivada';
     if (raw.includes('qual')) return 'Triagem';
     return 'Nova';
-    if (messageType === 'document') return 'Documentação';
-    if (raw.includes('document')) return 'Documentação';
-    if (raw.includes('simul') || raw.includes('proposta') || raw.includes('finance')) return 'Simulação';
-    if (raw.includes('visita')) return 'Visita';
-    if (raw.includes('fechado')) return 'Fechado';
-    if (raw.includes('perdido')) return 'Perdido';
-    if (raw.includes('qual') || raw.includes('atendimento')) return 'Qualificação';
-    return 'Novo';
   }
 
   _shouldAdvance(current, next) {

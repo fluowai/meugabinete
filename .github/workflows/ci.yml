@@ -11,11 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v5
       with:
-        node-version: '20'
+        node-version: '24'
         cache: 'npm'
     - name: Install dependencies
       run: npm ci
@@ -28,11 +28,11 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v5
       with:
-        node-version: '20'
+        node-version: '24'
         cache: 'npm'
     - name: Install dependencies
       run: npm ci
@@ -45,9 +45,9 @@ jobs:
       run:
         working-directory: whatsapp-service
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Setup Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v6
       with:
         go-version-file: whatsapp-service/go.mod
         cache-dependency-path: whatsapp-service/go.sum
@@ -69,11 +69,11 @@ jobs:
     needs: [lint-and-typecheck, test, whatsapp-go]
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v5
       with:
-        node-version: '20'
+        node-version: '24'
         cache: 'npm'
     - name: Install dependencies
       run: npm ci
