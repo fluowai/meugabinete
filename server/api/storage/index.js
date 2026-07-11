@@ -12,7 +12,6 @@ import {
   resolveMinioObjectKey,
   uploadObject,
 } from '../../lib/minio-storage.js';
-import { ensureStorageConfigLoaded } from '../../services/storageIntelligenceService.js';
 
 const router = Router();
 const upload = multer({
@@ -88,7 +87,6 @@ const EXTENSION_BY_MIME = {
 
 router.post('/upload', upload.single('file'), async (req, res) => {
   try {
-    await ensureStorageConfigLoaded();
 
     if (!req.file) {
       return res.status(400).json({ error: 'Arquivo nao enviado.' });
@@ -155,7 +153,6 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
 router.get('/signed-url', async (req, res) => {
   try {
-    await ensureStorageConfigLoaded();
 
     if (!isMinioConfigured()) {
       return res.status(503).json({ error: 'MinIO nao configurado.' });

@@ -42,8 +42,8 @@ export default defineConfig(({ mode }) => {
         includeAssets: ['icons/icon-*.png'],
         manifest: {
           id: '/',
-          name: 'Meu Gabinete - Gestão de Demandas',
-          short_name: 'Meu Gabinete',
+          name: 'PIOS - Political Intelligence OS',
+          short_name: 'PIOS',
           description: 'Sistema de gestão de gabinete para demandas recebidas pelo WhatsApp.',
           theme_color: '#16a34a',
           background_color: '#f8fafc',
@@ -71,7 +71,7 @@ export default defineConfig(({ mode }) => {
           categories: ['business', 'productivity', 'government'],
           shortcuts: [
             {
-              name: 'Painel Meu Gabinete',
+              name: 'Painel PIOS',
               short_name: 'Painel',
               description: 'Abrir o painel do sistema',
               url: '/login',

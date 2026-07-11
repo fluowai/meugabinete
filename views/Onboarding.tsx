@@ -65,7 +65,7 @@ const Onboarding: React.FC = () => {
             email: formData.email,
             password: formData.password,
             agencyName: formData.officeName,
-            profileType: 'traditional',
+            profileType: 'gabinete',
             plan: 'pro',
           }),
         });

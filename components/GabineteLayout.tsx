@@ -205,10 +205,10 @@ const GabineteLayout: React.FC = () => {
 
           <div>
             <p className="text-xs font-black uppercase tracking-widest text-primary">
-              Meu Gabinete
+              PIOS
             </p>
             <h1 className="text-lg font-black leading-none text-slate-900">
-              Meu Gabinete
+              Political Intelligence OS
             </h1>
           </div>
 

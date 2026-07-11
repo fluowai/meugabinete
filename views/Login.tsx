@@ -94,10 +94,10 @@ const Login: React.FC = () => {
         <section className="hidden flex-col justify-between bg-slate-900 px-12 py-10 lg:flex">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 font-black">
-              MG
+              PI
             </div>
             <div>
-              <p className="text-lg font-black">Meu Gabinete</p>
+              <p className="text-lg font-black">PIOS</p>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-200">
                 SaaS publico
               </p>
@@ -134,9 +134,9 @@ const Login: React.FC = () => {
           <div className="w-full max-w-md">
             <div className="mb-8 text-center lg:hidden">
               <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 font-black text-white">
-                MG
+                PI
               </div>
-              <h2 className="text-2xl font-black">Meu Gabinete</h2>
+              <h2 className="text-2xl font-black">PIOS</h2>
             </div>
 
             <div className="rounded-[2rem] border border-slate-200 bg-white p-7 shadow-2xl shadow-slate-900/10 md:p-9">
@@ -155,7 +155,7 @@ const Login: React.FC = () => {
               <div className="mb-8">
                 <h2 className="text-3xl font-black">Acessar painel</h2>
                 <p className="mt-2 text-sm font-medium text-slate-500">
-                  Use suas credenciais para entrar no Meu Gabinete.
+                  Use suas credenciais para entrar no PIOS.
                 </p>
               </div>
 
@@ -223,7 +223,7 @@ const Login: React.FC = () => {
             </div>
 
             <p className="mt-6 text-center text-xs font-semibold text-slate-400">
-              © {new Date().getFullYear()} Meu Gabinete. Todos os direitos reservados.
+              © {new Date().getFullYear()} PIOS. Todos os direitos reservados.
             </p>
           </div>
         </main>

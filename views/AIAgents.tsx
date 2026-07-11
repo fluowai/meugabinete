@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
@@ -1091,7 +1090,7 @@ const AIAgents: React.FC = () => {
         successMessage = 'Lead simulado respondeu.';
       } else if (selectedAgent) {
         const response = await aiAgentService.chat(selectedAgent.id, message, chatSessionId);
-        reply = response.reply;
+        reply = response.message;
         successMessage = 'Resposta real do agente recebida.';
       } else {
         reply = buildDraftAgentReply(draft, message);

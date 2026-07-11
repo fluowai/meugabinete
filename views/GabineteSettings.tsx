@@ -17,7 +17,7 @@ const GabineteSettings: React.FC = () => {
       </section>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card icon={Building2} title="Organização" text={profile?.organization?.name || 'Meu Gabinete'} />
+        <Card icon={Building2} title="Organização" text={profile?.organization?.name || 'Gabinete'} />
         <Card icon={Users} title="Equipe" text="Controle assessores e permissões pelo Super Admin." />
         <Card icon={Bot} title="IA" text="Configure chaves e instruções do agente de triagem." />
         <Card icon={ShieldCheck} title="Segurança" text="Acesso isolado por organização e sessão protegida." />

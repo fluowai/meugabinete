@@ -124,9 +124,9 @@ const devOrigins = [
   "http://127.0.0.1:3006",
 ];
 const productionOrigins = [
-  "https://meugabinete.com.br",
-  "https://www.meugabinete.com.br",
-  "https://app.meugabinete.com.br",
+  "https://political-os.com.br",
+  "https://www.political-os.com.br",
+  "https://app.political-os.com.br",
 ];
 const allowedOrigins = new Set([
   ...envAllowedOrigins,
@@ -224,7 +224,7 @@ app.post('/api/onboarding', async (req, res, next) => {
         status: 'active',
         subscription_status: 'trial',
         plan_id: selectedPlan?.id || null,
-        niche: 'traditional',
+        niche: 'gabinete',
         trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -276,7 +276,7 @@ app.get('/api/system-status', async (req, res) => {
     return res.status(200).json({
       success: true,
       status: "online",
-      service: "meu-gabinete-backend",
+      service: "political-intelligence-os-backend",
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       environment: process.env.NODE_ENV,
@@ -290,13 +290,13 @@ app.get('/api/system-status', async (req, res) => {
 app.get('/health', (req, res) =>
   res.json({ status: 'ok', uptime: process.uptime() })
 );
-app.get('/', (req, res) => res.send('Meu Gabinete API Online'));
+app.get('/', (req, res) => res.send('Political Intelligence OS API Online'));
 
 // ── Server Startup ──────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3002;
 
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Meu Gabinete API active on port ${PORT}`);
+  console.log(`Political Intelligence OS API active on port ${PORT}`);
 });
 
 setupWhatsAppProxy(app, server, verifyAuth, requireTenant);

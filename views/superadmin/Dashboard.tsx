@@ -89,7 +89,7 @@ const SuperAdminDashboard: React.FC = () => {
         <div className="mb-8 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-white shadow-xl">
           <div className="max-w-2xl">
             <h2 className="mb-3 text-3xl font-black text-white">
-              Bem-vindo ao painel do Meu Gabinete
+              Bem-vindo ao painel do PIOS
             </h2>
             <p className="mb-6 text-lg text-blue-100">
               Configure os planos de assinatura e cadastre o primeiro gabinete para iniciar a operacao.
